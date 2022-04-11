@@ -89,6 +89,8 @@ class Node(abc.ABC, torch.nn.Module):
         self.data_init(self.state, *args, **kwargs)
 
     def reset(self, batch, *args, **kwargs):
+        if self.clamped:
+            return
         assert self.batch is not None
         assert self.dim is not None
         if self.batch != batch:
@@ -97,12 +99,15 @@ class Node(abc.ABC, torch.nn.Module):
                 device=self.state.device,
                 requires_grad=self.state.requires_grad)
         self.data_init(self.state, *args, **kwargs)
+        return self.state
 
     def clamp(self):
         self.state.requires_grad_(False)
+        self.clamped = True
 
     def unclamp(self):
         self.state.requires_grad_(True)
+        self.clamped = False
 
     def checkin(self,edge):
         ##########

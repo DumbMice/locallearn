@@ -4,39 +4,39 @@ import torch
 
 class Edge(abc.ABC, torch.nn.Module):
     def __init__(self, prenode=None,posnode=None):
-        super().__init__()
         self.pre = prenode
         self.pos = posnode
+        super().__init__()
 
     def connect(self,prenode=None,posnode=None):
         self.pre = prenode
         self.pos = posnode
 
     def init_param_buffer(self):
-        for param in self.parameters():
+        for param in self.parameters(recurse=False):
             param.grad_buffer = []
 
     def __call__(self):
         return self.forward(self.pre())
 
     def storegrad(self):
-        for param in self.parameters():
+        for param in self.parameters(recurse=False):
             param.grad_buffer.append(param.grad)
 
     def addgrad(self,index):
-        for param in self.parameters():
+        for param in self.parameters(recurse=False):
             param.grad += param.grad_buffer[index]
 
     def popgrad(self,index):
-        for param in self.parameters():
+        for param in self.parameters(recurse=False):
             param.grad_buffer.pop(index)
 
     def freeze_grad(self):
-        for param in self.parameters():
+        for param in self.parameters(recurse=False):
             param.requires_grad_(False)
 
     def free_grad(self):
-        for param in self.parameters():
+        for param in self.parameters(recurse=False):
             param.requires_grad_(True)
 
 class Linear(torch.nn.Linear,Edge,):
