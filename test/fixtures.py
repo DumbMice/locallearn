@@ -87,3 +87,9 @@ def EyeLinearCudaEdge():
     linear=Linear(10,10,bias=False).cuda()
     torch.nn.init.eye_(linear.weight)
     return linear
+
+def L2diff(tensor1,tensor2):
+    return torch.sum((tensor1-tensor2)**2)
+
+def AllEqual(tensor1,tensor2):
+    return (tensor1 == tensor2).all()

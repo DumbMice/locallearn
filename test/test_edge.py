@@ -65,13 +65,26 @@ def test_grad_buffer_edges(EyeLinearCudaEdge):
     assert EyeLinearCudaEdge.weight.grad_buffer == []
 
 
-def test_storegrad_edges(EyeLinearCudaEdge, RandomVecCudaNode):
+def test_store_grad_edges(EyeLinearCudaEdge, RandomVecCudaNode):
     EyeLinearCudaEdge.pre = RandomVecCudaNode
     result = torch.sum(EyeLinearCudaEdge())
     result.backward()
     params = list(EyeLinearCudaEdge.parameters())
     print(f'state dict is {EyeLinearCudaEdge.state_dict()}')
     print(f'outside param is {params[0],params[0].grad}')
-    EyeLinearCudaEdge.storegrad()
+    EyeLinearCudaEdge.store_grad()
     assert (EyeLinearCudaEdge.weight.grad ==
             EyeLinearCudaEdge.weight.grad_buffer[0]).all()
+
+def test_add_grad_edges(EyeLinearCudaEdge, RandomVecCudaNode):
+    EyeLinearCudaEdge.pre = RandomVecCudaNode
+    result = torch.sum(EyeLinearCudaEdge())
+    result.backward()
+    params = list(EyeLinearCudaEdge.parameters())
+    print(f'state dict is {EyeLinearCudaEdge.state_dict()}')
+    print(f'outside param is {params[0],params[0].grad}')
+    EyeLinearCudaEdge.store_grad()
+    EyeLinearCudaEdge.add_grad(0)
+    assert (EyeLinearCudaEdge.weight.grad ==
+            2*EyeLinearCudaEdge.weight.grad_buffer[0]).all()
+

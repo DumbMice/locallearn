@@ -3,6 +3,8 @@
 import abc
 import torch
 from functools import singledispatchmethod
+from reprlib import recursive_repr
+
 
 
 class Node(abc.ABC, torch.nn.Module):
@@ -20,13 +22,20 @@ class Node(abc.ABC, torch.nn.Module):
             self._state = torch.nn.parameter.UninitializedParameter(
                 requires_grad=not clamped, dtype=dtype, device=device)
         else:
-            self._state = torch.nn.parameter.Parameter(state)
+            self._state = torch.nn.parameter.Parameter(state.detach().clone())
         self.clamped = clamped
-        self.connectin = {}
-        self.connectout = {}
+        self.connectin = torch.nn.ModuleList()
+        self.connectout = torch.nn.ModuleList()
         self._dim = dim
         self.data_init = data_init
         self._batch = None
+
+    def parameters(self,*args,**kwargs):
+        yield super().parameters(recurse=False)
+
+    @recursive_repr()
+    def __repr__(self):
+        return super().__repr__()
 
     @property
     def state(self):
@@ -102,11 +111,13 @@ class Node(abc.ABC, torch.nn.Module):
         return self.state
 
     def clamp(self):
-        self.state.requires_grad_(False)
+        if not isinstance(self.state,torch.nn.parameter.UninitializedParameter):
+            self.state.requires_grad_(False)
         self.clamped = True
 
     def unclamp(self):
-        self.state.requires_grad_(True)
+        if not isinstance(self.state,torch.nn.parameter.UninitializedParameter):
+            self.state.requires_grad_(True)
         self.clamped = False
 
     def checkin(self,edge):

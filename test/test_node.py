@@ -31,6 +31,16 @@ def test_state_FilledCudaNode(FilledNode,Ones):
 def test_state_FilledNode(FilledCudaNode,CudaOnes):
     assert torch.sum((FilledCudaNode.state-CudaOnes)**2)==0
 
+def test_fill_state_with_common_tensor_grad(NoneNode):
+    node1 = Node()
+    node2 = Node()
+    state = torch.rand(10,10)
+    node1.state = state
+    node2.state = state
+    torch.sum(node1.state**2).backward()
+    node1.state=node1.state-node1.state.grad
+    assert (node1.state != node2.state).all()
+
 def test_torchsize():
     assert torch.Size([1])+torch.Size([1,1]) == torch.Size([1,1,1])
 
