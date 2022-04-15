@@ -161,17 +161,19 @@ class Network(abc.ABC, torch.nn.Module):
         """
         e_last = e_func()
         self.nodes_step(e_last)
-        self.nodes.zero_grad()
+        self.node_optim.zero_grad()
         e_diff = 0
         for step in range(max_iter):
             e = e_func()
             e_diff = abs(e-e_last)
+            print(step,e_diff)
             if e_diff < self.etol:
-                return e_diff
+                self.node_optim.zero_grad()
+                return e_diff, e_last
             e_last = e
             self.nodes_step(e)
-            self.nodes.zero_grad()
-        return e_diff
+            self.node_optim.zero_grad()
+        return e_diff, e_last
 
     def edges_step(self, e):
         # TODO: Add Exception if optim not initiazlied <12-04-22,Yang
@@ -223,15 +225,17 @@ class Network(abc.ABC, torch.nn.Module):
             for ind in args:
                 self.edges[ind].free()
 
-    def initnodes(self,allow_initialized=True, *args:int, **kwargs):
+    def initnodes(self, allow_initialized=True, *args: int, **kwargs):
         if len(args) == 0:
             for node in self.nodes:
-                if (not isinstance(node.state,torch.nn.parameter.UninitializedParameter) and allow_initialized):
+                if (not isinstance(
+                        node.state, torch.nn.parameter.UninitializedParameter) and allow_initialized):
                     continue
                 node.init_data(**kwargs)
         else:
             for ind in args:
-                if (not isinstance(node.state,torch.nn.parameter.UninitializedParameter) and allow_initialized):
+                if (not isinstance(
+                        node.state, torch.nn.parameter.UninitializedParameter) and allow_initialized):
                     continue
                 self.nodes[ind].init_data(**kwargs)
 
@@ -250,6 +254,10 @@ class Network(abc.ABC, torch.nn.Module):
         """
         pass
 
+    def initall(self,input_shape,device=torch.device("cpu")):
+        self.innode = Node(torch.zeros(input_shape).to(device))
+        self.feedforward(self.innode)
+        self.resetnodes()
 
 class EP(Network):
 
@@ -265,14 +273,14 @@ class EP(Network):
             self.external_nodes['innode'] = node
             self.addnode(node)
         else:
-            self.external_nodes['innode'].state = node.state
+            self.external_nodes['innode'].state = node.state.data
         node.clamp()
 
     def set_outnode(self, node):
         if self.external_nodes['outnode'] is None:
             self.external_nodes['outnode'] = node
         else:
-            self.external_nodes['outnode'].state = node.state
+            self.external_nodes['outnode'].state = node.state.data
         node.clamp()
 
     def feedforward(self, node):
@@ -282,7 +290,7 @@ class EP(Network):
 
     def energy(self):
         C = 0
-        if self.beta != None:
+        if self.beta is not None:
             C = self.beta*self.cost()
         E = 0
         for node in self.nodes:
@@ -294,3 +302,19 @@ class EP(Network):
     def cost(self):
         return self.costfunc(
             input=self.nodes[-1].state, target=self.outnode.state)
+
+    def infer(self, input, max_iter=100, requires_grad=True, mean=False):
+        if not requires_grad:
+            self.freeze()
+        self.innode = Node(state=input)
+        self.node_optim.zero_grad()
+        Ediff = self.node_relax(
+            lambda: torch.sum(
+                self.energy()),
+            max_iter)[0].item()
+        Elast = torch.mean(
+            self.energy()).item() if mean else torch.sum(
+            self.energy()).item()
+        if not requires_grad:
+            self.free()
+        return self.nodes[-1].state.data, Elast, Ediff

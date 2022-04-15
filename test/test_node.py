@@ -129,3 +129,7 @@ def test_grad_eye_linear_nodes(EyeLinearEdge,RandomVecNode):
     result = torch.sum(EyeLinearEdge())
     result.backward()
     assert (RandomVecNode.state.grad==1).all()
+
+def test_linear_connected_node_param_shape(RandomLinearEdge,OnesNode,FilledNode):
+    RandomLinearEdge.connect(OnesNode,FilledNode)
+    assert len(list(OnesNode.parameters()))==1 and len(list(FilledNode.parameters()))==1

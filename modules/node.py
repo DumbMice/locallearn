@@ -24,18 +24,36 @@ class Node(abc.ABC, torch.nn.Module):
         else:
             self._state = torch.nn.parameter.Parameter(state.detach().clone())
         self.clamped = clamped
-        self.connectin = torch.nn.ModuleList()
-        self.connectout = torch.nn.ModuleList()
+        self.connectin = []
+        self.connectout = []
         self._dim = dim
         self.data_init = data_init
         self._batch = None
 
-    def parameters(self,*args,**kwargs):
-        yield super().parameters(recurse=False)
+    # TODO: Delete overloading module method workaround to aviod recursive
+    # calling.  <15-04-22, Yang Bangcheng> #
+    # def named_children(self):
+    #     return
+    #     yield
 
-    @recursive_repr()
-    def __repr__(self):
-        return super().__repr__()
+    # def parameters(self,*args,**kwargs):
+    #     yield super().parameters(recurse=False)
+
+    # def named_parameters(self, prefix: str = '', recurse: bool = True):
+    #     return super().named_parameters(prefix,recurse=False)
+
+    # def named_modules(self, memo= None, prefix: str = '', remove_duplicate: bool = True):
+    #     return super().named_modules(memo={*self.connectin,*self.connectout},prefix=prefix,remove_duplicate=remove_duplicate)
+
+    # def _named_members(self, get_members_fn, prefix='', recurse=True):
+    #     return super()._named_members(get_members_fn=get_members_fn,prefix=prefix,recurse=False)
+
+    # def _named_members(self, get_members_fn, prefix='', recurse=True):
+    #     yield super()._named_members(get_members_fn=get_members_fn,prefix=prefix,recurse=False)
+
+    # @recursive_repr()
+    # def __repr__(self):
+    #     return super().__repr__()
 
     @property
     def state(self):
