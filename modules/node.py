@@ -16,7 +16,7 @@ class Node(abc.ABC, torch.nn.Module):
     """
 
     def __init__(self, state=None, dim=None, device=None, dtype=None,
-                 clamped=False, data_init=torch.nn.init.xavier_uniform_):
+                 clamped=False,activation=torch.sigmoid, data_init=torch.nn.init.xavier_uniform_):
         super().__init__()
         if state is None:
             self._state = torch.nn.parameter.UninitializedParameter(
@@ -29,6 +29,7 @@ class Node(abc.ABC, torch.nn.Module):
         self._dim = dim
         self.data_init = data_init
         self._batch = None
+        self.activation = activation
 
     # TODO: Delete overloading module method workaround to aviod recursive
     # calling.  <15-04-22, Yang Bangcheng> #
@@ -104,6 +105,9 @@ class Node(abc.ABC, torch.nn.Module):
 
     def __call__(self):
         return self.state
+
+    def activate(self):
+        return self.activation(self.state)
 
     def init_data(self, batch=None, *args, **kwargs):
         assert isinstance(

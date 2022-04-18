@@ -163,7 +163,7 @@ class Network(abc.ABC, torch.nn.Module):
         self.nodes_step(e_last)
         self.node_optim.zero_grad()
         e_diff = 0
-        for step in range(max_iter):
+        for step in range(max_iter-1):
             e = e_func()
             e_diff = abs(e-e_last)
             print(step,e_diff)
@@ -275,6 +275,7 @@ class EP(Network):
         else:
             self.external_nodes['innode'].state = node.state.data
         node.clamp()
+        node.activation = lambda x: x
 
     def set_outnode(self, node):
         if self.external_nodes['outnode'] is None:
@@ -294,9 +295,12 @@ class EP(Network):
             C = self.beta*self.cost()
         E = 0
         for node in self.nodes:
-            E += torch.sum((node()**2).flatten(start_dim=1), 1)
-        for edge in self.edges:
-            E -= torch.sum((edge()*edge.pos()).flatten(start_dim=1), 1)
+            E += 0.5*torch.sum((node()**2).flatten(start_dim=1), 1)
+
+        for i,edge in enumerate(self.edges):
+            # TODO: Handling Convolution layers <18-04-22, Yang Bangcheng> #
+            E -= torch.sum((torch.nn.functional.linear(edge.pre.activate(),edge.weight)*edge.pos.activate()).flatten(start_dim=1), 1)
+            E -= torch.einsum('i,ji->j',edge.bias,(edge.pos.activate()))
         return E+C
 
     def cost(self):
