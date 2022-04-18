@@ -204,7 +204,7 @@ def MNISTgold():
         "fast_init": False,
         "learning_rate": 0.001,
         "nonlinearity": "sigmoid",
-        "optimizer": "adam",
+        "optimizer": "sgd",
         "seed":None
     }
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -212,7 +212,7 @@ def MNISTgold():
     phi = utils.create_activations(cfg['nonlinearity'], len(cfg['dimensions']))
     model = RestrictedHopfield(
         cfg['dimensions'], c_energy, cfg['batch_size'], phi).to(device)
-    # w_optimizer = utils.create_optimizer(model, cfg['optimizer'],  lr=cfg['learning_rate'])
+    w_optimizer = utils.create_optimizer(model, cfg['optimizer'],  lr=cfg['learning_rate'])
     return model
 
 @pytest.fixture
@@ -234,7 +234,7 @@ def MNISTLoader():
         "fast_init": False,
         "learning_rate": 0.001,
         "nonlinearity": "sigmoid",
-        "optimizer": "adam",
+        "optimizer": "sgd",
         "seed":None
     }
     mnist_train, mnist_test = data.create_mnist_loaders(cfg['batch_size'])

@@ -155,10 +155,11 @@ class Network(abc.ABC, torch.nn.Module):
         e.backward(retain_graph=True)
         self.node_optim.step()
 
-    def node_relax(self, e_func, max_iter=100):
+    def node_relax(self, e_func, max_iter=100,etol=None):
         """
         Multistep gradient descent of free energy on nodes until convergence before max iterations.
         """
+        etol = etol if etol is not None else self.etol
         e_last = e_func()
         self.nodes_step(e_last)
         self.node_optim.zero_grad()
@@ -166,8 +167,7 @@ class Network(abc.ABC, torch.nn.Module):
         for step in range(max_iter-1):
             e = e_func()
             e_diff = abs(e-e_last)
-            print(step,e_diff)
-            if e_diff < self.etol:
+            if e_diff < etol:
                 self.node_optim.zero_grad()
                 return e_diff, e_last
             e_last = e
@@ -209,10 +209,10 @@ class Network(abc.ABC, torch.nn.Module):
         """
         if len(args) == 0:
             for edge in self.edges:
-                edge.freeze()
+                edge.freeze_grad()
         else:
             for ind in args:
-                self.edges[ind].freeze()
+                self.edges[ind].freeze_grad()
 
     def free(self, *args: int):
         """
@@ -220,10 +220,10 @@ class Network(abc.ABC, torch.nn.Module):
         """
         if len(args) == 0:
             for edge in self.edges:
-                edge.free()
+                edge.free_grad()
         else:
             for ind in args:
-                self.edges[ind].free()
+                self.edges[ind].free_grad()
 
     def initnodes(self, allow_initialized=True, *args: int, **kwargs):
         if len(args) == 0:
@@ -251,6 +251,13 @@ class Network(abc.ABC, torch.nn.Module):
     def feedforward(self, node):
         """
         Pass data of innode through edges to fill the network.
+        """
+        pass
+
+    @abc.abstractmethod
+    def infer(self,input):
+        """
+        Given inputs, return outputs.
         """
         pass
 
