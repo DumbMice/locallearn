@@ -171,6 +171,6 @@ def test_infer_EP(CudaEP10, VecCudaNode):
     CudaEP10.node_optim = torch.optim.SGD(CudaEP10.nodes.parameters(), 0.1)
     CudaEP10.initall(VecCudaNode.shape, torch.device("cuda"))
     CudaEP10.etol = 0.01
-    out, elast, ediff = CudaEP10.infer(VecCudaNode.state, 100000)
+    out, elast, ediff = CudaEP10.infer(VecCudaNode.state, max_iter=100000)
     print(out, elast, ediff)
     assert (not AllEqual(out, 0)) and (ediff < CudaEP10.etol)

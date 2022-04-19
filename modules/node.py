@@ -55,6 +55,8 @@ class Node(abc.ABC, torch.nn.Module):
     # @recursive_repr()
     # def __repr__(self):
     #     return super().__repr__()
+    def energy(self):
+        return 0.
 
     @property
     def state(self):

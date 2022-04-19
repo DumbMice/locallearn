@@ -13,13 +13,14 @@ class Network(abc.ABC, torch.nn.Module):
     def __init__(
             self, innode=None, outnode=None,
             costfunc=torch.nn.CrossEntropyLoss(),
-            etol=1e-1):
+            etol=1e-1, max_iter=100):
         """TODO: to be defined. """
         super().__init__()
         self.nodes = torch.nn.ModuleList()
         self.edges = torch.nn.ModuleList()
         self.costfunc = costfunc
         self.etol = etol
+        self.max_iter = max_iter
         self.external_nodes = {'innode': innode, 'outnode': outnode}
         self.node_optim = None
         self.edge_optim = None
@@ -155,11 +156,12 @@ class Network(abc.ABC, torch.nn.Module):
         e.backward(retain_graph=True)
         self.node_optim.step()
 
-    def node_relax(self, e_func, max_iter=100,etol=None):
+    def node_relax(self, e_func, max_iter=None, etol=None):
         """
         Multistep gradient descent of free energy on nodes until convergence before max iterations.
         """
         etol = etol if etol is not None else self.etol
+        max_iter = max_iter if max_iter is not None else self.max_iter
         e_last = e_func()
         self.nodes_step(e_last)
         self.node_optim.zero_grad()
@@ -178,7 +180,7 @@ class Network(abc.ABC, torch.nn.Module):
     def edges_step(self, e):
         # TODO: Add Exception if optim not initiazlied <12-04-22,Yang
         # Bangcheng> #
-        e.backward()
+        e.backward(retain_graph=True)
         self.edge_optim.step()
 
     def clamp(self, *args: int):
@@ -255,16 +257,17 @@ class Network(abc.ABC, torch.nn.Module):
         pass
 
     @abc.abstractmethod
-    def infer(self,input):
+    def infer(self, input):
         """
         Given inputs, return outputs.
         """
         pass
 
-    def initall(self,input_shape,device=torch.device("cpu")):
+    def initall(self, input_shape, device=torch.device("cpu")):
         self.innode = Node(torch.zeros(input_shape).to(device))
         self.feedforward(self.innode)
         self.resetnodes()
+
 
 class EP(Network):
 
@@ -296,36 +299,50 @@ class EP(Network):
             edge.pos.state = edge()
             self.feedforward(edge.pos)
 
-    def energy(self):
+    def energy(self, beta=None):
         C = 0
-        if self.beta is not None:
-            C = self.beta*self.cost()
+        beta = beta if beta is not None else self.beta
+        if beta is not None and beta!=0:
+            C = beta*self.cost()
         E = 0
         for node in self.nodes:
             E += 0.5*torch.sum((node()**2).flatten(start_dim=1), 1)
 
-        for i,edge in enumerate(self.edges):
+        for i, edge in enumerate(self.edges):
             # TODO: Handling Convolution layers <18-04-22, Yang Bangcheng> #
-            E -= torch.sum((torch.nn.functional.linear(edge.pre.activate(),edge.weight)*edge.pos.activate()).flatten(start_dim=1), 1)
-            E -= torch.einsum('i,ji->j',edge.bias,(edge.pos.activate()))
+            E -= torch.sum((torch.nn.functional.linear(edge.pre.activate(),
+                           edge.weight)*edge.pos.activate()).flatten(start_dim=1), 1)
+            E -= torch.einsum('i,ji->j', edge.bias, (edge.pos.activate()))
         return E+C
 
     def cost(self):
         return self.costfunc(
-            input=self.nodes[-1].state, target=self.outnode.state)
+            self.nodes[-1].state, self.outnode.state)
 
-    def infer(self, input, max_iter=100, requires_grad=True, mean=False):
-        if not requires_grad:
-            self.freeze()
+    def infer(self, input,reset=False,
+              mean=True, max_iter=None, etol=None,beta=None):
+        max_iter = max_iter if max_iter is not None else self.max_iter
+        self.freeze()
         self.innode = Node(state=input)
+        if reset:
+            self.resetnodes()
         self.node_optim.zero_grad()
         Ediff = self.node_relax(
             lambda: torch.sum(
                 self.energy()),
-            max_iter)[0].item()
+                max_iter=max_iter, etol=etol)[0].item()
         Elast = torch.mean(
             self.energy()).item() if mean else torch.sum(
             self.energy()).item()
-        if not requires_grad:
-            self.free()
+        self.free()
         return self.nodes[-1].state.data, Elast, Ediff
+
+    def two_phase_update(self,x,y,max_iter=None, etol=None):
+        self.outnode = Node(state=y)
+        self.outnode.clamp()
+        self.infer(x,reset=True,max_iter=max_iter,etol=etol,beta=0)
+        # EP reaches first equilibrium
+        torch.mean(-1./self.beta*self.energy(beta=0)).backward()
+        self.infer(x,max_iter=max_iter,etol=etol,reset=False)
+        self.edges_step(torch.mean(1./self.beta*self.energy(beta=0)))
+        self.edge_optim.zero_grad()
