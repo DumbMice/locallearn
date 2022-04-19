@@ -16,7 +16,7 @@ class Node(abc.ABC, torch.nn.Module):
     """
 
     def __init__(self, state=None, dim=None, device=None, dtype=None,
-                 clamped=False,activation=torch.sigmoid, data_init=torch.nn.init.xavier_uniform_):
+                 clamped=False,activation=torch.sigmoid, data_init=torch.nn.init.normal_):
         super().__init__()
         if state is None:
             self._state = torch.nn.parameter.UninitializedParameter(

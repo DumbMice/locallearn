@@ -284,15 +284,15 @@ class EP(Network):
             self.addnode(node)
         else:
             self.external_nodes['innode'].state = node.state.data
-        node.clamp()
-        node.activation = lambda x: x
+        self.external_nodes['innode'].clamp()
+        self.external_nodes['innode'].activation = lambda x: x
 
     def set_outnode(self, node):
         if self.external_nodes['outnode'] is None:
             self.external_nodes['outnode'] = node
         else:
             self.external_nodes['outnode'].state = node.state.data
-        node.clamp()
+        self.external_nodes['outnode'].clamp()
 
     def feedforward(self, node):
         for edge in node.connectout:
@@ -329,7 +329,7 @@ class EP(Network):
         self.node_optim.zero_grad()
         Ediff = self.node_relax(
             lambda: torch.sum(
-                self.energy()),
+                self.energy(beta)),
                 max_iter=max_iter, etol=etol)[0].item()
         Elast = torch.mean(
             self.energy()).item() if mean else torch.sum(
@@ -342,7 +342,7 @@ class EP(Network):
         self.outnode.clamp()
         self.infer(x,reset=True,max_iter=max_iter,etol=etol,beta=0)
         # EP reaches first equilibrium
+        self.edge_optim.zero_grad()
         torch.mean(-1./self.beta*self.energy(beta=0)).backward()
         self.infer(x,max_iter=max_iter,etol=etol,reset=False)
         self.edges_step(torch.mean(1./self.beta*self.energy(beta=0)))
-        self.edge_optim.zero_grad()

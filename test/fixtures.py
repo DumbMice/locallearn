@@ -240,3 +240,28 @@ def MNISTLoader():
     mnist_train, mnist_test = data.create_mnist_loaders(cfg['batch_size'])
     return mnist_train,mnist_test
 
+@pytest.fixture
+def MNISTLoader100():
+    cfg = {
+        "batch_size": 100,
+        "beta": 1,
+        "c_energy": "squared_error",
+        "dataset": "mnist",
+        "dimensions": [784, 1000, 10],
+        "dynamics": {
+            "dt": 0.1,
+            "n_relax": 50,
+            "tau": 1,
+            "tol": 0.001
+        },
+        "energy": "restr_hopfield",
+        "epochs": 100,
+        "fast_init": False,
+        "learning_rate": 0.001,
+        "nonlinearity": "sigmoid",
+        "optimizer": "sgd",
+        "seed":None
+    }
+    mnist_train, mnist_test = data.create_mnist_loaders(cfg['batch_size'])
+    return mnist_train,mnist_test
+
