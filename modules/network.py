@@ -302,7 +302,7 @@ class EP(Network):
     def energy(self, beta=None):
         C = 0
         beta = beta if beta is not None else self.beta
-        if beta is not None and beta!=0:
+        if beta is not None and beta != 0:
             C = beta*self.cost()
         E = 0
         for node in self.nodes:
@@ -319,8 +319,8 @@ class EP(Network):
         return self.costfunc(
             self.nodes[-1].state, self.outnode.state)
 
-    def infer(self, input,reset=False,
-              mean=True, max_iter=None, etol=None,beta=None):
+    def infer(self, input, reset=False,
+              mean=True, max_iter=None, etol=None, beta=None):
         max_iter = max_iter if max_iter is not None else self.max_iter
         self.freeze()
         self.innode = Node(state=input)
@@ -330,19 +330,30 @@ class EP(Network):
         Ediff = self.node_relax(
             lambda: torch.sum(
                 self.energy(beta)),
-                max_iter=max_iter, etol=etol)[0].item()
+            max_iter=max_iter, etol=etol)[0].item()
         Elast = torch.mean(
             self.energy()).item() if mean else torch.sum(
             self.energy()).item()
         self.free()
         return self.nodes[-1].state.data, Elast, Ediff
 
-    def two_phase_update(self,x,y,max_iter=None, etol=None):
+    def two_phase_update(self, x, y, max_iter=None, etol=None):
         self.outnode = Node(state=y)
         self.outnode.clamp()
-        self.infer(x,reset=True,max_iter=max_iter,etol=etol,beta=0)
+        self.infer(x, reset=True, max_iter=max_iter, etol=etol, beta=0)
         # EP reaches first equilibrium
         self.edge_optim.zero_grad()
         torch.mean(-1./self.beta*self.energy(beta=0)).backward()
-        self.infer(x,max_iter=max_iter,etol=etol,reset=False)
+        self.infer(x, max_iter=max_iter, etol=etol, reset=False)
         self.edges_step(torch.mean(1./self.beta*self.energy(beta=0)))
+
+    def three_phase_update(self, x, y, max_iter=None, etol=None):
+        self.outnode = Node(state=y)
+        self.outnode.clamp()
+        self.infer(x, reset=True, max_iter=max_iter, etol=etol, beta=0)
+        # EP reaches first equilibrium
+        self.infer(x, max_iter=max_iter, etol=etol, reset=False,beta=self.beta)
+        self.edge_optim.zero_grad()
+        torch.mean(0.5/self.beta*self.energy(beta=0)).backward()
+        self.infer(x, max_iter=max_iter, etol=etol, reset=False,beta=-self.beta)
+        self.edges_step(torch.mean(-0.5/self.beta*self.energy(beta=0)))
