@@ -216,6 +216,31 @@ def MNISTgold():
     return model
 
 @pytest.fixture
+def CIFAR10CudaEP():
+    device = torch.ones(1).cuda().device
+    net = EP()
+    net.addlayerednodes(6, True)
+    net.connect(0, 1, Conv2d(3, 10,3,padding=1))
+    net.connect(1, 2, Conv2d(10,32,3,padding=1))
+    net.connect(2, 3, Conv2d(32, 5,3,pos_call=(lambda x: torch.flatten(x,start_dim=1)),padding=1))
+    net.connect(3, 4, Linear(5120, 100))
+    net.connect(4, 5, Linear(100, 10))
+    net.to(device)
+    net.etol=1e-3
+    return net
+
+@pytest.fixture
+def MNISTCudaConvEP():
+    device = torch.ones(1).cuda().device
+    net = EP()
+    net.addlayerednodes(3, True)
+    net.connect(0, 1, Conv2d(1, 10,3,pos_call=(lambda x: torch.flatten(x,start_dim=1)),padding=1,bias=False))
+    net.connect(1, 2, Linear(7840, 10))
+    net.to(device)
+    net.etol=1e-3
+    return net
+
+@pytest.fixture
 def MNISTLoader():
     cfg = {
         "batch_size": 10,
@@ -232,8 +257,7 @@ def MNISTLoader():
         "energy": "restr_hopfield",
         "epochs": 100,
         "fast_init": False,
-        "learning_rate": 0.001,
-        "nonlinearity": "sigmoid",
+        "learning_rate": 0.001, "nonlinearity": "sigmoid",
         "optimizer": "sgd",
         "seed":None
     }
@@ -263,5 +287,30 @@ def MNISTLoader100():
         "seed":None
     }
     mnist_train, mnist_test = data.create_mnist_loaders(cfg['batch_size'])
+    return mnist_train,mnist_test
+
+@pytest.fixture
+def CIFAR10Loader100():
+    cfg = {
+        "batch_size": 100,
+        "beta": 1,
+        "c_energy": "squared_error",
+        "dataset": "mnist",
+        "dimensions": [784, 1000, 10],
+        "dynamics": {
+            "dt": 0.1,
+            "n_relax": 50,
+            "tau": 1,
+            "tol": 0.001
+        },
+        "energy": "restr_hopfield",
+        "epochs": 100,
+        "fast_init": False,
+        "learning_rate": 0.001,
+        "nonlinearity": "sigmoid",
+        "optimizer": "sgd",
+        "seed":None
+    }
+    mnist_train, mnist_test = data.create_cifar10_loaders(cfg['batch_size'])
     return mnist_train,mnist_test
 

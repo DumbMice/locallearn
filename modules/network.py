@@ -306,13 +306,17 @@ class EP(Network):
             C = beta*self.cost()
         E = 0
         for node in self.nodes:
-            E += 0.5*torch.sum((node()**2).flatten(start_dim=1), 1)
+            E += 0.5*torch.sum((node()**2).flatten(start_dim=1),1)
 
         for i, edge in enumerate(self.edges):
+
             # TODO: Handling Convolution layers <18-04-22, Yang Bangcheng> #
-            E -= torch.sum((torch.nn.functional.linear(edge.pre.activate(),
-                           edge.weight)*edge.pos.activate()).flatten(start_dim=1), 1)
-            E -= torch.einsum('i,ji->j', edge.bias, (edge.pos.activate()))
+            # E -= torch.sum((torch.nn.functional.linear(edge.pre.activate(),
+            #                edge.weight)*edge.pos.activate()).flatten(start_dim=1), 1)
+            # E -= torch.einsum('i,ji->j', edge.bias, (edge.pos.activate()))
+            product = edge(edge.pre.activate())*edge.pos.activate()
+            deltaE = torch.sum(product.flatten(start_dim=1),1)
+            E -=  deltaE
         return E+C
 
     def cost(self):

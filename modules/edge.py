@@ -3,10 +3,12 @@ import abc
 import torch
 
 
-class Edge(abc.ABC, torch.nn.Module):
-    def __init__(self, prenode=None, posnode=None):
+class Edge(abc.ABC):
+    def __init__(self,pre_call,pos_call, prenode=None, posnode=None):
         self._nodes = {'pre':prenode,'pos':posnode}
-        super().__init__()
+        self.pre_call = (lambda x: x) if pre_call is None else pre_call
+        self.pos_call = (lambda x: x) if pos_call is None else pos_call
+
 
     def __setattr__(self, name, value):
         """
@@ -54,9 +56,9 @@ class Edge(abc.ABC, torch.nn.Module):
 
     def __call__(self,input=None):
         if input == None:
-            return self.forward(self.pre())
+            return self.pos_call(self.forward(self.pre_call(self.pre())))
         else:
-            return self.forward(input)
+            return self.pos_call(self.forward(self.pre_call(input)))
 
     def store_grad(self):
         for param in self.parameters():
@@ -80,36 +82,36 @@ class Edge(abc.ABC, torch.nn.Module):
             param.requires_grad_(True)
 
 
-class Linear(torch.nn.Linear, Edge,):
+class Linear(Edge,torch.nn.Linear, ):
 
     """Docstring for Linear. """
 
     def __init__(self, in_features, out_features,
-                 prenode=None, posnode=None, *args, **kwargs):
+                 prenode=None, posnode=None,pre_call=None,pos_call=None, **kwargs):
         """TODO: to be defined. """
-        Edge.__init__(self, prenode, posnode)
         torch.nn.Linear.__init__(
             self,
             in_features,
             out_features,
-            *args,
             **kwargs)
+        Edge.__init__(self,pre_call, pos_call, prenode, posnode)
         self.init_param_buffer()
 
 
-class Conv2d(torch.nn.Conv2d, Edge):
+class Conv2d( Edge,torch.nn.Conv2d,):
 
     """Docstring for Conv2d. """
 
     def __init__(self, in_channels, out_channels, kernel_size,
-                 prenode=None, posnode=None, *args, **kwargs):
+                 prenode=None, posnode=None,pre_call=None,pos_call=None,**kwargs):
         """TODO: to be defined. """
-        Edge.__init__(self, prenode, posnode)
+        self.pre_call = pre_call
+        self.pos_call = pos_call
         torch.nn.Conv2d.__init__(
             self,
             in_channels,
             out_channels,
             kernel_size,
-            *args,
             **kwargs)
         self.init_param_buffer()
+        Edge.__init__(self,pre_call,pos_call, prenode=prenode, posnode=posnode)
