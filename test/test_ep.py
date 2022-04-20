@@ -5,6 +5,7 @@ import pytest
 from modules.node import *
 from modules.edge import *
 from .fixtures import *
+from itertools import cycle
 
 def test_energy_gold_EP(MNISTCudaEP,MNISTgold,MNISTLoader):
     MNISTCudaEP.initall(input_shape=torch.Size([10,784]),device=torch.device('cuda'))
@@ -277,6 +278,7 @@ def test_two_phase_update_lower_crossentropy_loss_EP(MNISTCudaEP,MNISTLoader100)
     pre_cost = torch.mean(MNISTCudaEP.cost())
     print(f'pre cost is {pre_cost}')
     for epoch in range(epoches):
+        trainiter = iter(trainldr)
         for i in range(599):
             x,y = next(trainiter)
             x=x.view(x.shape[0],-1).cuda()
@@ -293,7 +295,7 @@ def test_two_phase_update_lower_crossentropy_loss_EP(MNISTCudaEP,MNISTLoader100)
         total = 0
         out,e_last,e_diff = MNISTCudaEP.infer(x,reset=True,beta=0)
         # Compute test batch accuracy, energy and store number of seen batches
-        correct += float(torch.sum(out == y.argmax(dim=1)))
+        correct += float(torch.sum(torch.argmax(out,1) == y.argmax(dim=1)))
         total += x.size(0)
         print(f'epoch {epoch} accuracy: {correct/total}')
         pre_cost = torch.mean(MNISTCudaEP.cost())
