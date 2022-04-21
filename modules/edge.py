@@ -94,7 +94,7 @@ class Linear(Edge,torch.nn.Linear, ):
             in_features,
             out_features,
             **kwargs)
-        Edge.__init__(self,pre_call, pos_call, prenode, posnode)
+        Edge.__init__(self,pre_call, pos_call, prenode=prenode, posnode=prenode)
         self.init_param_buffer()
 
 
@@ -105,8 +105,6 @@ class Conv2d( Edge,torch.nn.Conv2d,):
     def __init__(self, in_channels, out_channels, kernel_size,
                  prenode=None, posnode=None,pre_call=None,pos_call=None,**kwargs):
         """TODO: to be defined. """
-        self.pre_call = pre_call
-        self.pos_call = pos_call
         torch.nn.Conv2d.__init__(
             self,
             in_channels,
