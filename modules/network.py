@@ -305,8 +305,9 @@ class EP(Network):
         if beta is not None and beta != 0:
             C = beta*self.cost()
         E = 0
-        for node in self.nodes:
-            E += 0.5*torch.sum((node()**2).flatten(start_dim=1),1)
+        for i, node in enumerate(self.nodes):
+            self_energy = 0.5*torch.sum((node()**2).flatten(start_dim=1),1)
+            E += self_energy
 
         for i, edge in enumerate(self.edges):
 
@@ -314,9 +315,11 @@ class EP(Network):
             # E -= torch.sum((torch.nn.functional.linear(edge.pre.activate(),
             #                edge.weight)*edge.pos.activate()).flatten(start_dim=1), 1)
             # E -= torch.einsum('i,ji->j', edge.bias, (edge.pos.activate()))
+            # penalty = 0.5*torch.sum((edge.weight*edge.weight).flatten(start_dim=1)).unsqueeze(0)
             product = edge(edge.pre.activate())*edge.pos.activate()
-            deltaE = torch.sum(product.flatten(start_dim=1),1)
-            E -=  deltaE
+            interaction = torch.sum(product.flatten(start_dim=1),1)
+            
+            E -= interaction
         return E+C
 
     def cost(self):
