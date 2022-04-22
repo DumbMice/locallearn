@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 
 import pytest
+import sys,os
 from modules.node import *
 from modules.edge import *
 from modules.network import *
-from .equilibrium_propagation.lib.energy import *
-from .equilibrium_propagation.lib.train import *
+
+sys.path.append(os.path.join(sys.path[0],'test','equilibrium_propagation'))
+
+from .equilibrium_propagation.lib.energy import RestrictedHopfield
+from .equilibrium_propagation.lib.train import predict_batch, train
 from .equilibrium_propagation.lib import utils
 from .equilibrium_propagation.lib import data
 
