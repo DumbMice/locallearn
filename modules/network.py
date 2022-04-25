@@ -21,9 +21,10 @@ class Network(abc.ABC, torch.nn.Module):
         self.costfunc = costfunc
         self.etol = etol
         self.max_iter = max_iter
-        self.external_nodes = {'innode': innode, 'outnode': outnode}
+        self.external_nodes = {'innode': None, 'outnode': None}
         self.node_optim = None
         self.edge_optim = None
+
 
     def addnode(self, *args: type(Node)):
         """
@@ -31,6 +32,13 @@ class Network(abc.ABC, torch.nn.Module):
         """
         for node in args:
             self.nodes.append(node)
+
+    def addcopynode(self, n, *args, **kwargs):
+        """
+        Add n nodes.
+        """
+        for i in range(n):
+            self.addnode(Node(*args, **kwargs))
 
     def addedge(self, *args: type(Edge)):
         """
@@ -136,17 +144,6 @@ class Network(abc.ABC, torch.nn.Module):
     def batch(self):
         return self.innode.batch
 
-    def addlayerednodes(self, n, outnode=True, *args, **kwargs):
-        """
-        Add n nodes (including innode). With outnode=true, create one extra outnode.
-        """
-        innode = Node(*args, **kwargs)
-        self.innode = innode
-        for i in range(n-1):
-            self.addnode(Node(*args, **kwargs))
-        if outnode:
-            self.outnode = Node()
-
     def nodes_step(self, e):
         """
         Gradient descent step of free energy on nodes
@@ -249,12 +246,15 @@ class Network(abc.ABC, torch.nn.Module):
             for ind in args:
                 self.nodes[ind].reset(batch=self.batch, **kwargs)
 
-    @abc.abstractmethod
-    def feedforward(self, node):
-        """
-        Pass data of innode through edges to fill the network.
-        """
-        pass
+    def feedforward(self, node,mem=None):
+        if mem is None:
+            mem = set()
+        for edge in node.connectout:
+            if edge not in mem:
+                mem.add(edge)
+                edge.pos.state = edge()
+                self.feedforward(edge.pos)
+        return mem
 
     @abc.abstractmethod
     def infer(self, input):
@@ -263,20 +263,56 @@ class Network(abc.ABC, torch.nn.Module):
         """
         pass
 
-    def initall(self, input_shape, device=torch.device("cpu")):
-        self.innode = Node(torch.zeros(input_shape).to(device))
-        self.feedforward(self.innode)
+    @abc.abstractmethod
+    def initall(self):
+        pass
+
+class NToX(Network):
+
+    """Docstring for NInput. """
+
+    def __init__(self,*args,**kwargs):
+        """TODO: to be defined.
+
+        :*args: TODO
+        :**kwargs: TODO
+
+        """
+        super().__init__(self,*args,**kwargs)
+
+    def set_innode(self,nodes):
+        if self.external_nodes['innode'] == None:
+            self.external_nodes['innode'] = torch.nn.ModuleList(nodes)
+        else:
+            for i,node in enumerate(self.external_nodes['innode']):
+                node.state = nodes[i].state.data
+                node.clamp()
+                node.activation = lambda x: x
+
+    def extend_innode(self,nodes):
+        if self.innode is None:
+            self.set_innode(nodes)
+        else:
+            self.external_nodes['innode'].extend(nodes)
+        for node in nodes:
+            node.clamp()
+            node.activation = lambda x: x
+
+    def initall(self,input_shapes,device=torch.device('cpu')):
+        mem = set()
+        for i,node in enumerate(self.innode):
+            node = Node(torch.zeros(input_shapes[i]).to(device))
+            mem = self.feedforward(self.innode,mem=mem)
         self.resetnodes()
 
 
-class EP(Network):
+class OneToX(Network):
 
-    """Docstring for EP. """
+    """Docstring for OneToX. """
 
-    def __init__(self, beta=None, *args, **kwargs):
+    def __init__(self,*args,**kwargs):
         """TODO: to be defined. """
-        super().__init__(*args, **kwargs)
-        self.beta = beta
+        super().__init__(self,*args,**kwargs)
 
     def set_innode(self, node):
         if self.external_nodes['innode'] is None:
@@ -287,6 +323,51 @@ class EP(Network):
         self.external_nodes['innode'].clamp()
         self.external_nodes['innode'].activation = lambda x: x
 
+    def initall(self,input_shape,device=torch.device('cpu')):
+        self.innode = Node(torch.zeros(input_shape).to(device))
+        self.feedforward(self.innode)
+        self.resetnodes()
+
+
+class XToN(Network):
+
+    """Docstring for XToN. """
+
+    def __init__(self,*args,**kwargs):
+        """TODO: to be defined.
+
+        :*args: TODO
+        :**kwargs: TODO
+
+        """
+        super().__init__(self,*args,**kwargs)
+
+    def set_outnode(self,nodes):
+        if self.external_nodes['outnode'] == None:
+            self.external_nodes['outnode'] = torch.nn.ModuleList(nodes)
+        else:
+            for i,node in enumerate(self.external_nodes['outnode']):
+                node.state = nodes[i].state.data
+                node.clamp()
+
+    def extend_outnode(self,nodes):
+        if self.outnode is None:
+            self.set_outnode(nodes)
+        else:
+            self.external_nodes['outnode'].extend(nodes)
+        for node in nodes:
+            node.clamp()
+
+class XToOne(Network):
+    def __init__(self,*args,**kwargs):
+        """TODO: to be defined.
+
+        :*args: TODO
+        :**kwargs: TODO
+
+        """
+        super().__init__(self,*args,**kwargs)
+
     def set_outnode(self, node):
         if self.external_nodes['outnode'] is None:
             self.external_nodes['outnode'] = node
@@ -294,10 +375,31 @@ class EP(Network):
             self.external_nodes['outnode'].state = node.state.data
         self.external_nodes['outnode'].clamp()
 
-    def feedforward(self, node):
-        for edge in node.connectout:
-            edge.pos.state = edge()
-            self.feedforward(edge.pos)
+
+class OneToOne(OneToX,XToOne):
+    def __init__(self, *args, **kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args, **kwargs)
+
+    def addlayerednodes(self, n, outnode=True, *args, **kwargs):
+        """
+        Add n nodes (including innode). With outnode=true, create one extra outnode.
+        """
+        innode = Node(*args, **kwargs)
+        self.innode = innode
+        self.addcopynode(n-1,*args,**kwargs)
+        if outnode:
+            self.outnode = Node()
+
+class EP(OneToOne):
+
+    """Docstring for EP. """
+
+    def __init__(self, beta=None, *args, **kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args, **kwargs)
+        self.beta = beta
+
 
     def energy(self, beta=None):
         C = 0
@@ -306,20 +408,19 @@ class EP(Network):
             C = beta*self.cost()
         E = 0
         for i, node in enumerate(self.nodes):
-            self_energy = 0.5*torch.sum((node()**2).flatten(start_dim=1),1)
-            E += self_energy
+            if node.energy() is not None:
+                E += node.energy()
+            else:
+                self_energy = 0.5*torch.sum((node()**2).flatten(start_dim=1),1)
+                E += self_energy
 
         for i, edge in enumerate(self.edges):
-
-            # TODO: Handling Convolution layers <18-04-22, Yang Bangcheng> #
-            # E -= torch.sum((torch.nn.functional.linear(edge.pre.activate(),
-            #                edge.weight)*edge.pos.activate()).flatten(start_dim=1), 1)
-            # E -= torch.einsum('i,ji->j', edge.bias, (edge.pos.activate()))
-            # penalty = 0.5*torch.sum((edge.weight*edge.weight).flatten(start_dim=1)).unsqueeze(0)
-            product = edge(edge.pre.activate())*edge.pos.activate()
-            interaction = torch.sum(product.flatten(start_dim=1),1)
-            
-            E -= interaction
+            if edge.energy() is not None:
+                E -= edge.energy()
+            else:
+                product = edge(edge.pre.activate())*edge.pos.activate()
+                interaction = torch.sum(product.flatten(start_dim=1),1)
+                E -= interaction
         return E+C
 
     def cost(self):
@@ -364,3 +465,8 @@ class EP(Network):
         torch.mean(0.5/self.beta*self.energy(beta=0)).backward()
         self.infer(x, max_iter=max_iter, etol=etol, reset=False,beta=-self.beta)
         self.edges_step(torch.mean(-0.5/self.beta*self.energy(beta=0)))
+
+class NEP(NToX,EP):
+    def __init__(self,*args,**kwargs):
+        super().__init__(beta=None,*args,**kwargs)
+        self.beta= beta

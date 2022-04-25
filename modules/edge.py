@@ -31,7 +31,7 @@ class Edge(abc.ABC):
         return self._nodes['pos']
 
     def energy(self):
-        return 0
+        return None
     # TODO: Delete overloading module method workaround to aviod recursive
     # calling.  <15-04-22, Yang Bangcheng> #
     # def parameters(self,*args,**kwargs):

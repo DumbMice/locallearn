@@ -155,16 +155,15 @@ def test_cost_grad_EP():
     assert AllEqual(t1.grad, net.nodes[0]().grad)
 
 
-@pytest.mark.xfail
-def test_infer_EPConv(CudaEP10Conv, FilledCudaNode):
-    CudaEP10Conv.node_optim = torch.optim.SGD(
-        CudaEP10Conv.nodes.parameters(), 0.01)
-    CudaEP10Conv.initall(FilledCudaNode.shape, torch.device("cuda"))
-    print(CudaEP10Conv.energy())
-    CudaEP10Conv.etol = 0.01
-    out, elast, ediff = CudaEP10Conv.infer(FilledCudaNode.state, 200000)
+def test_infer_EPConv(CudaEP5Conv, FilledCudaNode):
+    CudaEP5Conv.node_optim = torch.optim.ASGD(
+        CudaEP5Conv.nodes.parameters(), 0.01)
+    CudaEP5Conv.initall(FilledCudaNode.shape, torch.device("cuda"))
+    print(CudaEP5Conv.energy())
+    CudaEP5Conv.etol = 1e-8
+    out, elast, ediff = CudaEP5Conv.infer(FilledCudaNode.state, max_iter=20000000)
     print(out, elast, ediff)
-    assert (not AllEqual(out, 0)) and (ediff < CudaEP10Conv.etol)
+    assert (not AllEqual(out, 0)) and (ediff < CudaEP5Conv.etol)
 
 
 def test_infer_EP(CudaEP10, VecCudaNode):

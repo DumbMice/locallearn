@@ -56,7 +56,7 @@ class Node(abc.ABC, torch.nn.Module):
     # def __repr__(self):
     #     return super().__repr__()
     def energy(self):
-        return 0.
+        return None
 
     @property
     def state(self):

@@ -55,10 +55,6 @@ cifar10_test = datasets.CIFAR10('/data/215/Program/Equilibrium-Propagation-maste
                             )
 
 
-
-
-
-
 kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
 trainldr=torch.utils.data.DataLoader(
     cifar10_train, batch_size=batch_size, drop_last=True, shuffle=True, **kwargs)

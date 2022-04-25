@@ -149,7 +149,6 @@ def CudaEP10():
     net.to(torch.device("cuda"))
     return net
 
-
 @pytest.fixture
 def CudaEP10Conv():
     device = torch.ones(1).cuda().device
@@ -164,6 +163,18 @@ def CudaEP10Conv():
     net.connect(6, 7, Conv2d(13, 13, 3))
     net.connect(7, 8, Conv2d(13, 21, 3))
     net.connect(8, 9, Conv2d(21, 22, 3))
+    net.to(device)
+    return net
+
+@pytest.fixture
+def CudaEP5Conv():
+    device = torch.ones(1).cuda().device
+    net = EP()
+    net.addlayerednodes(5, True)
+    net.connect(0, 1, Conv2d(3, 10, 3))
+    net.connect(1, 2, Conv2d(10, 10, 3))
+    net.connect(2, 3, Conv2d(10, 10, 3))
+    net.connect(3, 4, Conv2d(10, 11, 3))
     net.to(device)
     return net
 
