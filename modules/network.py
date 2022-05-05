@@ -268,18 +268,6 @@ class Network(abc.ABC, torch.nn.Module):
 
 
 class NToX(Network):
-
-    """Docstring for NInput. """
-
-    def __init__(self, *args, **kwargs):
-        """TODO: to be defined.
-
-        :*args: TODO
-        :**kwargs: TODO
-
-        """
-        super().__init__(self, *args, **kwargs)
-
     def set_innode(self, nodes):
         if self.external_nodes['innode'] is None:
             self.external_nodes['innode'] = torch.nn.ModuleList(nodes)
@@ -307,13 +295,6 @@ class NToX(Network):
 
 
 class OneToX(Network):
-
-    """Docstring for OneToX. """
-
-    def __init__(self, *args, **kwargs):
-        """TODO: to be defined. """
-        super().__init__(self, *args, **kwargs)
-
     def set_innode(self, node):
         if self.external_nodes['innode'] is None:
             self.external_nodes['innode'] = node
@@ -330,18 +311,6 @@ class OneToX(Network):
 
 
 class XToN(Network):
-
-    """Docstring for XToN. """
-
-    def __init__(self, *args, **kwargs):
-        """TODO: to be defined.
-
-        :*args: TODO
-        :**kwargs: TODO
-
-        """
-        super().__init__(self, *args, **kwargs)
-
     def set_outnode(self, nodes):
         if self.external_nodes['outnode'] is None:
             self.external_nodes['outnode'] = torch.nn.ModuleList(nodes)
@@ -358,17 +327,12 @@ class XToN(Network):
         for node in nodes:
             node.clamp()
 
+    def cost(self):
+        # TODO: Add support for distince cost func <26-04-22, Yang Bangcheng> #
+        return sum(self.costfunc(
+            self.nodes[-1].state, node.state) for node in self.outnode)
 
 class XToOne(Network):
-    def __init__(self, *args, **kwargs):
-        """TODO: to be defined.
-
-        :*args: TODO
-        :**kwargs: TODO
-
-        """
-        super().__init__(self, *args, **kwargs)
-
     def set_outnode(self, node):
         if self.external_nodes['outnode'] is None:
             self.external_nodes['outnode'] = node
@@ -376,11 +340,29 @@ class XToOne(Network):
             self.external_nodes['outnode'].state = node.state.data
         self.external_nodes['outnode'].clamp()
 
+    def cost(self):
+        return self.costfunc(
+            self.nodes[-1].state, self.outnode.state)
+
 
 class OneToOne(OneToX, XToOne):
-    def __init__(self, *args, **kwargs):
-        """TODO: to be defined. """
-        super().__init__(*args, **kwargs)
+    def infer(self, input, reset=False,
+              mean=True, max_iter=None, etol=None, beta=None):
+        max_iter = max_iter if max_iter is not None else self.max_iter
+        self.freeze()
+        self.innode = Node(state=input)
+        if reset:
+            self.resetnodes()
+        self.node_optim.zero_grad()
+        Ediff = self.node_relax(
+            lambda: torch.sum(
+                self.energy(beta)),
+            max_iter=max_iter, etol=etol)[0].item()
+        Elast = torch.mean(
+            self.energy()).item() if mean else torch.sum(
+            self.energy()).item()
+        self.free()
+        return self.nodes[-1].state.data, Elast, Ediff
 
     def addlayerednodes(self, n, outnode=True, *args, **kwargs):
         """
@@ -425,28 +407,6 @@ class EP(OneToOne):
                 E -= interaction
         return E+C
 
-    def cost(self):
-        return self.costfunc(
-            self.nodes[-1].state, self.outnode.state)
-
-    def infer(self, input, reset=False,
-              mean=True, max_iter=None, etol=None, beta=None):
-        max_iter = max_iter if max_iter is not None else self.max_iter
-        self.freeze()
-        self.innode = Node(state=input)
-        if reset:
-            self.resetnodes()
-        self.node_optim.zero_grad()
-        Ediff = self.node_relax(
-            lambda: torch.sum(
-                self.energy(beta)),
-            max_iter=max_iter, etol=etol)[0].item()
-        Elast = torch.mean(
-            self.energy()).item() if mean else torch.sum(
-            self.energy()).item()
-        self.free()
-        return self.nodes[-1].state.data, Elast, Ediff
-
     def two_phase_update(self, x, y, max_iter=None, etol=None):
         self.outnode = Node(state=y)
         self.outnode.clamp()
@@ -478,10 +438,38 @@ class EP(OneToOne):
             beta=-self.beta)
         self.edges_step(torch.mean(-0.5/self.beta*self.energy(beta=0)))
 
+class PC(OneToOne):
+
+    def __init__(self, beta=None, *args, **kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args, **kwargs)
+        self.beta = beta
+
+    def energy(self, beta=None):
+        C = 0
+        beta = beta if beta is not None else self.beta
+        if beta is not None and beta != 0:
+            C = beta*self.cost()
+        E = 0.
+        for i, edge in enumerate(reversed(self.edges)):
+            if edge.energy() is not None:
+                E += edge.energy()
+            else:
+                E += torch.sum(((edge.pos()-edge())**2).flatten(start_dim=1),1)
+        return E+C
+
+    def one_phase_update(self, x, y, max_iter=None, etol=None,beta=None):
+        self.outnode = Node(state=y)
+        self.outnode.clamp()
+        self.innode = Node(state=x)
+        self.feedforward(self.innode)
+        self.infer(x, reset=False, max_iter=max_iter, etol=etol, beta=beta)
+        self.edge_optim.zero_grad()
+        self.edges_step(torch.mean(self.energy(beta=beta)))
 
 class NEP(NToX, EP):
     def __init__(self, *args, **kwargs):
-        super().__init__(beta=None, *args, **kwargs)
+        super().__init__( *args, **kwargs)
         self.beta = beta
 
     def infer(self, inputs, reset=False,
@@ -501,3 +489,4 @@ class NEP(NToX, EP):
             self.energy()).item()
         self.free()
         return self.nodes[-1].state.data, Elast, Ediff
+

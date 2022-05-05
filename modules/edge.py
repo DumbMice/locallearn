@@ -4,7 +4,7 @@ import torch
 
 
 class Edge(abc.ABC):
-    def __init__(self,pre_call,pos_call, prenode=None, posnode=None):
+    def __init__(self,pre_call=None,pos_call=None, prenode=None, posnode=None):
         self._nodes = {'pre':prenode,'pos':posnode}
         self.pre_call = (lambda x: x) if pre_call is None else pre_call
         self.pos_call = (lambda x: x) if pos_call is None else pos_call
@@ -32,19 +32,6 @@ class Edge(abc.ABC):
 
     def energy(self):
         return None
-    # TODO: Delete overloading module method workaround to aviod recursive
-    # calling.  <15-04-22, Yang Bangcheng> #
-    # def parameters(self,*args,**kwargs):
-    #     return super().parameters(recurse=False)
-
-    # def named_parameters(self, prefix: str = '', recurse: bool = True):
-    #     return super().named_parameters(prefix,recurse=False)
-
-    # def named_modules(self, memo= None, prefix: str = '', remove_duplicate: bool = True):
-    #     return super().named_modules(memo={self.pre,self.pos},prefix=prefix,remove_duplicate=remove_duplicate)
-
-    # def _named_members(self, get_members_fn, prefix='', recurse=True):
-    #     return super()._named_members(get_members_fn=get_members_fn,prefix=prefix,recurse=False)
 
     def connect(self, prenode=None, posnode=None):
         self.pre = prenode
@@ -54,11 +41,17 @@ class Edge(abc.ABC):
         for param in self.parameters():
             param.grad_buffer = []
 
-    def __call__(self,input=None):
-        if input == None:
-            return self.pos_call(self.forward(self.pre_call(self.pre())))
+    def __call__(self,input=None,reverse=False):
+        if reverse:
+            if input == None:
+                return self.pre_call.reverse(self.reverse(self.pos_call.reverse(self.pos())))
+            else:
+                return self.pre_call.reverse(self.reverse(self.pos_call.reverse(input)))
         else:
-            return self.pos_call(self.forward(self.pre_call(input)))
+            if input == None:
+                return self.pos_call(self.forward(self.pre_call(self.pre())))
+            else:
+                return self.pos_call(self.forward(self.pre_call(input)))
 
     def store_grad(self):
         for param in self.parameters():

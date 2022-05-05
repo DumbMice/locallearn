@@ -196,7 +196,17 @@ def MNISTCudaEP():
     net.connect(1, 2, Linear(1000, 10))
     net.to(device)
     net.etol=1e-3
-    net.activation=torch.sigmoid
+    return net
+
+@pytest.fixture
+def MNISTCudaPC():
+    device = torch.ones(1).cuda().device
+    net = PC()
+    net.addlayerednodes(3, True)
+    net.connect(0, 1, Linear(784, 1000))
+    net.connect(1, 2, Linear(1000, 10))
+    net.to(device)
+    net.etol=1e-3
     return net
 
 
@@ -245,7 +255,32 @@ def CIFAR10CudaEP():
     return net
 
 @pytest.fixture
+def CIFAR10CudaPC():
+    device = torch.ones(1).cuda().device
+    net = EP()
+    net.addlayerednodes(6, True)
+    net.connect(0, 1, Conv2d(3, 10,3,padding=1))
+    net.connect(1, 2, Conv2d(10,32,3,padding=1))
+    net.connect(2, 3, Conv2d(32, 5,3,pos_call=(lambda x: torch.flatten(x,start_dim=1)),padding=1))
+    net.connect(3, 4, Linear(5120, 100))
+    net.connect(4, 5, Linear(100, 10))
+    net.to(device)
+    net.etol=1e-3
+    return net
+
+@pytest.fixture
 def MNISTCudaConvEP():
+    device = torch.ones(1).cuda().device
+    net = EP()
+    net.addlayerednodes(3, True)
+    net.connect(0, 1, Conv2d(1, 10,3,pos_call=(lambda x: torch.flatten(x,start_dim=1)),padding=1,bias=False))
+    net.connect(1, 2, Linear(7840, 10))
+    net.to(device)
+    net.etol=1e-3
+    return net
+
+@pytest.fixture
+def MNISTCudaConvPC():
     device = torch.ones(1).cuda().device
     net = EP()
     net.addlayerednodes(3, True)
