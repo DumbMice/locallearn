@@ -18,7 +18,7 @@ def test_one_phase_update_lower_crossentropy_loss_MNISTPC(MNISTCudaPC,MNISTLoade
     MNISTCudaPC.etol=1e-4
     MNISTCudaPC.beta = 50.
     MNISTCudaPC.max_iter = 100
-    epoches = 10
+    epoches = 3
 
     x,y = next(trainiter)
     x=x.cuda().flatten(start_dim=1)
@@ -31,7 +31,7 @@ def test_one_phase_update_lower_crossentropy_loss_MNISTPC(MNISTCudaPC,MNISTLoade
     print(f'initial cost is {initial_cost}')
     for epoch in range(epoches):
         trainiter = iter(trainldr)
-        for i in range(599):
+        for i in range(20):
             x,y = next(trainiter)
             x=x.cuda().flatten(start_dim=1)
             y=y.float().cuda()
@@ -47,7 +47,9 @@ def test_one_phase_update_lower_crossentropy_loss_MNISTPC(MNISTCudaPC,MNISTLoade
             MNISTCudaPC.one_phase_update(x,y)
         correct = 0
         total = 0
-        out,e_last,e_diff = MNISTCudaPC.infer(x,reset=True,beta=0)
+        MNISTCudaPC.innode = Node(state=x)
+        MNISTCudaPC.feedforward(MNISTCudaPC.innode)
+        out = MNISTCudaPC.nodes[-1]()
         # Compute test batch accuracy, energy and store number of seen batches
         correct += float(torch.sum(torch.argmax(out,1) == y.argmax(dim=1)))
         total += x.size(0)

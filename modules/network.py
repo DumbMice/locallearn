@@ -58,7 +58,7 @@ class Network(abc.ABC, torch.nn.Module):
             # TODO: Check if identical edges can be identified <13-04-22, Yang
             # Bangcheng> #
             self.addnode(prenode)
-        if not posnode in self.nodes:
+        if posnode not in self.nodes:
             # TODO: Check if identical edges can be identified <13-04-22, Yang
             # Bangcheng> #
             self.addnode(posnode)

@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 import abc
 import torch
-
+from . import function
 
 class Edge(abc.ABC):
-    def __init__(self,pre_call=None,pos_call=None, prenode=None, posnode=None):
-        self._nodes = {'pre':prenode,'pos':posnode}
-        self.pre_call = (lambda x: x) if pre_call is None else pre_call
-        self.pos_call = (lambda x: x) if pos_call is None else pos_call
-
+    def __init__(self,*args,**kwargs):
+        self._nodes = {'pre':None,'pos':None}
+        super().__init__(*args,**kwargs)
+        self.init_param_buffer()
 
     def __setattr__(self, name, value):
         """
@@ -42,16 +41,10 @@ class Edge(abc.ABC):
             param.grad_buffer = []
 
     def __call__(self,input=None,reverse=False):
-        if reverse:
-            if input == None:
-                return self.pre_call.reverse(self.reverse(self.pos_call.reverse(self.pos())))
-            else:
-                return self.pre_call.reverse(self.reverse(self.pos_call.reverse(input)))
+        if input == None:
+            return self.forward(self.pre())
         else:
-            if input == None:
-                return self.pos_call(self.forward(self.pre_call(self.pre())))
-            else:
-                return self.pos_call(self.forward(self.pre_call(input)))
+            return self.forward(input)
 
     def store_grad(self):
         for param in self.parameters():
@@ -74,35 +67,67 @@ class Edge(abc.ABC):
         for param in self.parameters():
             param.requires_grad_(True)
 
+def EdgeBuilder(module,*args,**kwargs):
+    class EdgeModule(Edge,module):
+        def __init__(self, *args,**kwargs):
+            """TODO: to be defined. """
+            super().__init__(*args,**kwargs)
 
-class Linear(Edge,torch.nn.Linear, ):
+    return EdgeModule(*args,**kwargs)
+
+class Linear(Edge,function.Linear ):
 
     """Docstring for Linear. """
 
-    def __init__(self, in_features, out_features,
-                 prenode=None, posnode=None,pre_call=None,pos_call=None, **kwargs):
+    def __init__(self, *args,**kwargs):
         """TODO: to be defined. """
-        torch.nn.Linear.__init__(
-            self,
-            in_features,
-            out_features,
-            **kwargs)
-        Edge.__init__(self,pre_call, pos_call, prenode=prenode, posnode=prenode)
-        self.init_param_buffer()
+        super().__init__(*args,**kwargs)
 
 
-class Conv2d( Edge,torch.nn.Conv2d,):
+class Conv2d( Edge,function.Conv2d,):
 
     """Docstring for Conv2d. """
 
-    def __init__(self, in_channels, out_channels, kernel_size,
-                 prenode=None, posnode=None,pre_call=None,pos_call=None,**kwargs):
+    def __init__(self, *args,**kwargs):
         """TODO: to be defined. """
-        torch.nn.Conv2d.__init__(
-            self,
-            in_channels,
-            out_channels,
-            kernel_size,
-            **kwargs)
-        self.init_param_buffer()
-        Edge.__init__(self,pre_call,pos_call, prenode=prenode, posnode=posnode)
+        super().__init__(*args,**kwargs)
+
+class Sequential(Edge,function.Sequential):
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)
+
+class Flatten(Edge,function.Flatten):
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)
+
+class MaxPool2d(Edge,function.MaxPool2d):
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)
+
+class ReLU(Edge,function.ReLU):
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)
+
+class LeakyReLU(Edge,function.LeakyReLU):
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)
+    # return input+(0.5-0.5*torch.abs(input)/input)*(1./self.negative_slope-1.)*input
+class SELU(Edge,function.SELU):
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)
+
+class Sigmoid(Edge,function.Sigmoid):
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)
+
+class Tanh(Edge,function.Tanh):
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)

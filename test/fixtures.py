@@ -28,7 +28,6 @@ def CudaNoneNode():
 def DoubleNode():
     return Node(dtype=torch.float64)
 
-
 @pytest.fixture
 def CudaDoubleNode():
     return Node(dtype=torch.float64).cuda()
@@ -247,7 +246,7 @@ def CIFAR10CudaEP():
     net.addlayerednodes(6, True)
     net.connect(0, 1, Conv2d(3, 10,3,padding=1))
     net.connect(1, 2, Conv2d(10,32,3,padding=1))
-    net.connect(2, 3, Conv2d(32, 5,3,pos_call=(lambda x: torch.flatten(x,start_dim=1)),padding=1))
+    net.connect(2, 3, Sequential(Conv2d(32, 5,3,padding=1),Flatten()))
     net.connect(3, 4, Linear(5120, 100))
     net.connect(4, 5, Linear(100, 10))
     net.to(device)
@@ -261,7 +260,7 @@ def CIFAR10CudaPC():
     net.addlayerednodes(6, True)
     net.connect(0, 1, Conv2d(3, 10,3,padding=1))
     net.connect(1, 2, Conv2d(10,32,3,padding=1))
-    net.connect(2, 3, Conv2d(32, 5,3,pos_call=(lambda x: torch.flatten(x,start_dim=1)),padding=1))
+    net.connect(2, 3, Sequential(Conv2d(32, 5,3,padding=1),Flatten()))
     net.connect(3, 4, Linear(5120, 100))
     net.connect(4, 5, Linear(100, 10))
     net.to(device)
@@ -273,7 +272,7 @@ def MNISTCudaConvEP():
     device = torch.ones(1).cuda().device
     net = EP()
     net.addlayerednodes(3, True)
-    net.connect(0, 1, Conv2d(1, 10,3,pos_call=(lambda x: torch.flatten(x,start_dim=1)),padding=1,bias=False))
+    net.connect(0, 1, Sequential(Conv2d(1, 10,3,padding=1,bias=False),Flatten()))
     net.connect(1, 2, Linear(7840, 10))
     net.to(device)
     net.etol=1e-3
@@ -284,7 +283,7 @@ def MNISTCudaConvPC():
     device = torch.ones(1).cuda().device
     net = EP()
     net.addlayerednodes(3, True)
-    net.connect(0, 1, Conv2d(1, 10,3,pos_call=(lambda x: torch.flatten(x,start_dim=1)),padding=1,bias=False))
+    net.connect(0, 1, Sequential(Conv2d(1, 10,3,padding=1,bias=False),Flatten()))
     net.connect(1, 2, Linear(7840, 10))
     net.to(device)
     net.etol=1e-3
@@ -303,8 +302,7 @@ def MNISTLoader():
             "n_relax": 50,
             "tau": 1,
             "tol": 0.001
-        },
-        "energy": "restr_hopfield",
+        }, "energy": "restr_hopfield",
         "epochs": 100,
         "fast_init": False,
         "learning_rate": 0.001, "nonlinearity": "sigmoid",

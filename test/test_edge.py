@@ -3,6 +3,8 @@
 import pytest
 from modules.node import *
 from modules.edge import *
+import modules.function as func
+import torch
 from .fixtures import *
 
 
@@ -95,4 +97,6 @@ def test_add_grad_edges(EyeLinearCudaEdge, RandomVecCudaNode):
     assert (EyeLinearCudaEdge.weight.grad ==
             2*EyeLinearCudaEdge.weight.grad_buffer[0]).all()
 
-
+def test_edge_builder():
+    edge = EdgeBuilder(torch.nn.Linear,10,10)
+    assert edge.weight.shape==torch.Size([10,10])

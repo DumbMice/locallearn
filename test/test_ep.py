@@ -256,7 +256,7 @@ def test_two_phase_update_lower_mse_loss_EP(MNISTCudaEP,MNISTLoader100):
         assert AllEqual(y,ybk)
     assert torch.mean(MNISTCudaEP.cost()-initial_cost)<0.
 
-# @pytest.mark.skip
+@pytest.mark.skip
 def test_two_phase_update_lower_crossentropy_loss_EP(MNISTCudaEP,MNISTLoader100):
 
     MNISTCudaEP.initall(input_shape=torch.Size([100,784]),device=torch.device('cuda'))
