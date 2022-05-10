@@ -314,12 +314,11 @@ class OneToX(Network):
 
 class XToN(Network):
     def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
-        self.costfunc = {}
+        super().__init__(costfunc={},*args,**kwargs)
 
     def set_outnode(self, nodes):
         if self.external_nodes['outnode'] is None:
-            self.external_nodes['outnode'] = torch.nn.ModuleList(nodes)
+            self.external_nodes['outnode'] = torch.nn.ModuleList([nodes])
         else:
             for i, node in enumerate(self.external_nodes['outnode']):
                 node.state = nodes[i].state.data
@@ -336,7 +335,7 @@ class XToN(Network):
 
     def cost(self):
         # TODO: Add support for distince cost func <26-04-22, Yang Bangcheng> #
-        return sum(self.costfunc(key)(*key) for key in self.costfunc.keys())
+        return sum(self.costfunc[key](*list(node() for node in key)) for key in self.costfunc.keys())
 
 class XToOne(Network):
     def set_outnode(self, node):
@@ -497,3 +496,5 @@ class NEP(NToX, EP):
         self.free()
         return self.nodes[-1].state.data, Elast, Ediff
 
+class PCN(XToN,PC):
+    pass

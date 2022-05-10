@@ -149,6 +149,22 @@ def CudaEP10():
     return net
 
 @pytest.fixture
+def CudaPCN10():
+    net = PCN()
+    net.addlayerednodes(10, True)
+    net.connect(0, 1, Linear(10, 10))
+    net.connect(1, 2, Linear(10, 10))
+    net.connect(2, 3, Linear(10, 10))
+    net.connect(3, 4, Linear(10, 10))
+    net.connect(4, 5, Linear(10, 10))
+    net.connect(5, 6, Linear(10, 10))
+    net.connect(6, 7, Linear(10, 10))
+    net.connect(7, 8, Linear(10, 10))
+    net.connect(8, 9, Linear(10, 10))
+    net.to(torch.device("cuda"))
+    return net
+
+@pytest.fixture
 def CudaEP10Conv():
     device = torch.ones(1).cuda().device
     net = EP()

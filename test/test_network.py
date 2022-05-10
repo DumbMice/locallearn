@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import torch
 import pytest
 import copy
 from modules.node import *
@@ -173,3 +174,14 @@ def test_infer_EP(CudaEP10, VecCudaNode):
     out, elast, ediff = CudaEP10.infer(VecCudaNode.state, max_iter=100000)
     print(out, elast, ediff)
     assert (not AllEqual(out, 0)) and (ediff < CudaEP10.etol)
+
+def test_XToN_PC(CudaPCN10,VecCudaNode):
+    CudaPCN10.extend_outnode([VecCudaNode])
+    CudaPCN10.costfunc[(CudaPCN10.nodes[0],CudaPCN10.outnode[0])]=torch.nn.MSELoss()
+    CudaPCN10.costfunc[(CudaPCN10.nodes[-1],CudaPCN10.outnode[1])]=torch.nn.MSELoss()
+    CudaPCN10.initall(torch.Size([10,10]),torch.device("cuda"))
+    CudaPCN10.outnode[0].state=CudaPCN10.nodes[0].state.data
+    CudaPCN10.outnode[1].state.data=CudaPCN10.nodes[-1].state.data
+    print(CudaPCN10.outnode[0].state)
+    print(CudaPCN10.outnode[1].state)
+    assert torch.sum(CudaPCN10.cost())==0.
