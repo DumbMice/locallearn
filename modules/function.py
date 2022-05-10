@@ -9,8 +9,8 @@ class Sequential(torch.nn.Sequential):
     return input
 
 class Flatten(torch.nn.Flatten):
-    def __init__(self, start_dim: int = 1, end_dim: int = -1) -> None:
-        super().__init__(start_dim, end_dim)
+    def __init__(self, *args,**kwargs) -> None:
+        super().__init__(*args,**kwargs)
         self.computing = False
         self.original_shape = None
 
@@ -31,9 +31,6 @@ class Linear(torch.nn.Linear):
         return torch.nn.functional.linear(input-bias,torch.linalg.pinv(self.weight),None)
 
 class Conv2d(torch.nn.Conv2d):
-  def __init__(self,in_channels, out_channels, kernel_size, stride=1, padding=0,dilation=1, groups=1, bias=True, padding_mode='zeros'):
-      super().__init__(in_channels, out_channels, kernel_size, stride=1, padding=0,dilation=1, groups=1, bias=True, padding_mode='zeros')
-
   def _conv_reverse(self, input, weight, bias):
         if self.padding_mode != 'zeros':
             raise Exception('None zero padding mode reverse function not implemented')
@@ -44,8 +41,8 @@ class Conv2d(torch.nn.Conv2d):
     return self._conv_reverse(input, self.weight, self.bias)
 
 class MaxPool2d(torch.nn.MaxPool2d):
-  def __init__(self, kernel_size, stride,padding = 0, dilation = 1, ceil_mode= False, return_indices=True) :
-      super().__init__(kernel_size, stride,padding =padding, dilation = dilation,ceil_mode= ceil_mode, return_indices=return_indices)
+  def __init__(self, *args,**kwargs) :
+      super().__init__(return_indices=True,*args,**kwargs)
       self.indices=None
       self.output_size =None
 
