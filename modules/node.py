@@ -84,6 +84,12 @@ class Node(abc.ABC, torch.nn.Module):
     def __call__(self):
         return self.state
 
+    def __repr__(self):
+        return f'< Node(shape={self.shape}, clamped={self.clamped}, activation={self.activation}, connectin={self.connectin}, connectout={self.connectout}) at {hex(id(self))}>'
+
+    def __str__(self):
+        return f'Node(shape={self.shape}, clamped={self.clamped},  connectin={self.connectin}, connectout={self.connectout},\n state={self.state})'
+
     def activate(self):
         return self.activation(self.state)
 

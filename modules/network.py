@@ -22,6 +22,7 @@ class Network(abc.ABC, torch.nn.Module):
         self.etol = etol
         self.max_iter = max_iter
         self.external_nodes = {'innode': None, 'outnode': None}
+        self.extra_edges = []
         self.node_optim = None
         self.edge_optim = None
 
@@ -201,7 +202,7 @@ class Network(abc.ABC, torch.nn.Module):
             for ind in args:
                 self.nodes[ind].unclamp()
 
-    def freeze(self, *args: int):
+    def freeze(self, *args: int,extra_edges = []):
         """
         Freeze edges by their indices inside self.edges
         """
@@ -211,6 +212,8 @@ class Network(abc.ABC, torch.nn.Module):
         else:
             for ind in args:
                 self.edges[ind].freeze_grad()
+        for edge in self.extra_edges:
+            edge.freeze_grad()
 
     def free(self, *args: int):
         """
@@ -222,6 +225,8 @@ class Network(abc.ABC, torch.nn.Module):
         else:
             for ind in args:
                 self.edges[ind].free_grad()
+        for edge in self.extra_edges:
+            edge.free_grad()
 
     def initnodes(self, allow_initialized=True, *args: int, **kwargs):
         if len(args) == 0:
@@ -250,7 +255,6 @@ class Network(abc.ABC, torch.nn.Module):
             mem = set()
         for edge in node.connectout:
             if edge not in mem:
-                print(f'edge:{edge},pre:{edge.pre},pos:{edge.pos}')
                 mem.add(edge)
                 edge.pos.state = edge()
                 self.feedforward(edge.pos)
