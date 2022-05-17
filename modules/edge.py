@@ -92,6 +92,14 @@ class Conv2d( Edge,function.Conv2d,):
         """TODO: to be defined. """
         super().__init__(*args,**kwargs)
 
+class PatchEmbedding( Edge,function.PatchEmbedding):
+
+    """Docstring for Conv2d. """
+
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)
+
 class Sequential(Edge,function.Sequential):
     def __init__(self, *args,**kwargs):
         """TODO: to be defined. """
@@ -128,6 +136,11 @@ class Sigmoid(Edge,function.Sigmoid):
         super().__init__(*args,**kwargs)
 
 class Tanh(Edge,function.Tanh):
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)
+
+class BatchNorm2d(Edge,function.BatchNorm2d):
     def __init__(self, *args,**kwargs):
         """TODO: to be defined. """
         super().__init__(*args,**kwargs)

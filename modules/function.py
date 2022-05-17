@@ -40,6 +40,23 @@ class Conv2d(torch.nn.Conv2d):
   def reverse(self,input):
     return self._conv_reverse(input, self.weight, self.bias)
 
+class PatchEmbedding(torch.nn.Module):
+    def __init__(self, in_channels: int = 3, patch_size: int = 4, emb_size: int = 48):
+        self.patch_size = patch_size
+        super().__init__()
+        self.projection = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels, emb_size, kernel_size=patch_size, stride=patch_size),
+
+        )
+        #self.cls_token = torch.nn.Parameter(torch.randn(1, 1, emb_size))
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        b, _, _, _ = x.shape
+
+        x = self.projection(x)
+        #cls_tokens = repeat(self.cls_token, '() n e -> b n e', b=b)
+        #x = torch.cat([cls_tokens, x], dim=1)
+        return x
+
 class MaxPool2d(torch.nn.MaxPool2d):
   def __init__(self, *args,**kwargs) :
       super().__init__(return_indices=True,*args,**kwargs)
@@ -76,3 +93,7 @@ class Tanh(torch.nn.Tanh):
   def reverse(self,input):
     # return torch.atanh(input)
     return torch.tanh(input)
+
+class BatchNorm2d(torch.nn.BatchNorm2d):
+    pass
+

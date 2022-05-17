@@ -5,6 +5,8 @@ import torch
 from .node import *
 from .edge import *
 
+def identity(x):
+    return x
 
 class Network(abc.ABC, torch.nn.Module):
 
@@ -112,6 +114,9 @@ class Network(abc.ABC, torch.nn.Module):
         else:
             super().__setattr__(name, value)
 
+    def __repr__(self):
+        return f'< {self.__class__.__mro__[2].__name__} {self.__class__.__mro__[1].__name__} {self.__class__.__mro__[0].__name__}(etol={self.etol}, max_iter={self.max_iter}, node_optim={self.node_optim}, edge_optim={self.edge_optim}, nodes={self.nodes}), edges={self.edges}, external_nodes={self.external_nodes}, extra_edges={self.extra_edges}, costfunc={self.costfunc} at {hex(id(self))}>'
+
     @property
     def innode(self):
         """
@@ -202,7 +207,7 @@ class Network(abc.ABC, torch.nn.Module):
             for ind in args:
                 self.nodes[ind].unclamp()
 
-    def freeze(self, *args: int,extra_edges = []):
+    def freeze(self, *args: int, extra_edges=[]):
         """
         Freeze edges by their indices inside self.edges
         """
@@ -281,7 +286,7 @@ class NToX(Network):
                 node.state = nodes[i].state.data
         for node in self.innode:
             node.clamp()
-            node.activation = lambda x: x
+            node.activation = identity
 
     def extend_innode(self, nodes):
         if self.innode is None:
@@ -290,7 +295,7 @@ class NToX(Network):
             self.external_nodes['innode'].extend(nodes)
         for node in nodes:
             node.clamp()
-            node.activation = lambda x: x
+            node.activation = identity
 
     def initall(self, input_shapes, device=torch.device('cpu')):
         mem = set()
@@ -308,7 +313,7 @@ class OneToX(Network):
         else:
             self.external_nodes['innode'].state = node.state.data
         self.external_nodes['innode'].clamp()
-        self.external_nodes['innode'].activation = lambda x: x
+        self.external_nodes['innode'].activation = identity
 
     def initall(self, input_shape, device=torch.device('cpu')):
         self.innode = Node(torch.zeros(input_shape).to(device))
@@ -317,8 +322,8 @@ class OneToX(Network):
 
 
 class XToN(Network):
-    def __init__(self,*args,**kwargs):
-        super().__init__(costfunc={},*args,**kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(costfunc={}, *args, **kwargs)
 
     def set_outnode(self, nodes):
         if self.external_nodes['outnode'] is None:
@@ -339,7 +344,10 @@ class XToN(Network):
 
     def cost(self):
         # TODO: Add support for distince cost func <26-04-22, Yang Bangcheng> #
-        return sum(self.costfunc[key](*list(node() for node in key)) for key in self.costfunc.keys())
+        return sum(
+            self.costfunc[key](*list(node() for node in key))
+            for key in self.costfunc.keys())
+
 
 class XToOne(Network):
     def set_outnode(self, node):
@@ -416,17 +424,26 @@ class EP(OneToOne):
                 E -= interaction
         return E+C
 
-    def two_phase_update(self, x, y, max_iter=None, etol=None):
+    def two_phase_update(self, x, y, max_iter=None, etol=None,repeat=1):
         self.outnode = Node(state=y)
         self.outnode.clamp()
         self.infer(x, reset=True, max_iter=max_iter, etol=etol, beta=0)
         # EP reaches first equilibrium
         self.edge_optim.zero_grad()
         torch.mean(-1./self.beta*self.energy(beta=0)).backward()
-        _,elast,ediff=self.infer(x, max_iter=max_iter, etol=etol, reset=False)
+        _, elast, ediff = self.infer(
+            x, max_iter=max_iter, etol=etol, reset=False)
         self.edges_step(torch.mean(1./self.beta*self.energy(beta=0)))
+        for i in range(repeat-1):
+            self.infer(x, reset=False, max_iter=max_iter, etol=etol, beta=0)
+            # EP reaches first equilibrium
+            self.edge_optim.zero_grad()
+            torch.mean(-1./self.beta*self.energy(beta=0)).backward()
+            _, elast, ediff = self.infer(
+                x, max_iter=max_iter, etol=etol, reset=False)
+            self.edges_step(torch.mean(1./self.beta*self.energy(beta=0)))
 
-    def three_phase_update(self, x, y, max_iter=None, etol=None):
+    def three_phase_update(self, x, y, max_iter=None, etol=None,repeat=1):
         self.outnode = Node(state=y)
         self.outnode.clamp()
         self.infer(x, reset=True, max_iter=max_iter, etol=etol, beta=0)
@@ -439,13 +456,32 @@ class EP(OneToOne):
             beta=self.beta)
         self.edge_optim.zero_grad()
         torch.mean(0.5/self.beta*self.energy(beta=0)).backward()
-        _,elast,ediff=self.infer(
+        _, elast, ediff = self.infer(
             x,
             max_iter=max_iter,
             etol=etol,
             reset=False,
             beta=-self.beta)
         self.edges_step(torch.mean(-0.5/self.beta*self.energy(beta=0)))
+        for i in range(repeat-1):
+            self.infer(x, reset=False, max_iter=max_iter, etol=etol, beta=0)
+            # EP reaches first equilibrium
+            self.infer(
+                x,
+                max_iter=max_iter,
+                etol=etol,
+                reset=False,
+                beta=self.beta)
+            self.edge_optim.zero_grad()
+            torch.mean(0.5/self.beta*self.energy(beta=0)).backward()
+            _, elast, ediff = self.infer(
+                x,
+                max_iter=max_iter,
+                etol=etol,
+                reset=False,
+                beta=-self.beta)
+            self.edges_step(torch.mean(-0.5/self.beta*self.energy(beta=0)))
+
 
 class PC(OneToOne):
 
@@ -464,23 +500,23 @@ class PC(OneToOne):
             if edge.energy() is not None:
                 E += edge.energy()
             else:
-                E += torch.sum(((edge.pos()-edge())**2).flatten(start_dim=1),1)
+                E += torch.sum(((edge.pos()-edge()) **
+                               2).flatten(start_dim=1), 1)
         return E+C
 
-    def one_phase_update(self, x, y, max_iter=None, etol=None,beta=None):
+    def one_phase_update(self, x, y, max_iter=None, etol=None, beta=None):
         self.outnode = Node(state=y)
         self.outnode.clamp()
         self.innode = Node(state=x)
         self.feedforward(self.innode)
-        _,elast,ediff=self.infer(x, reset=False, max_iter=max_iter, etol=etol, beta=beta)
+        _, elast, ediff = self.infer(
+            x, reset=False, max_iter=max_iter, etol=etol, beta=beta)
         self.edge_optim.zero_grad()
         self.edges_step(torch.mean(self.energy(beta=beta)))
-        return elast,ediff
+        return elast, ediff
+
 
 class NEP(NToX, EP):
-    def __init__(self, *args, **kwargs):
-        super().__init__( *args, **kwargs)
-        self.beta = beta
 
     def infer(self, inputs, reset=False,
               mean=True, max_iter=None, etol=None, beta=None):
@@ -500,5 +536,6 @@ class NEP(NToX, EP):
         self.free()
         return self.nodes[-1].state.data, Elast, Ediff
 
-class PCN(XToN,PC):
+
+class PCN(XToN, PC):
     pass
