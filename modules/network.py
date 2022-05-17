@@ -155,7 +155,7 @@ class Network(abc.ABC, torch.nn.Module):
         """
         # TODO: Add Exception if optim not initiazlied <12-04-22,Yang
         # Bangcheng> #
-        e.backward(retain_graph=True)
+        e.backward(inputs=list(self.nodes.parameters())[1::])
         self.node_optim.step()
 
     def node_relax(self, e_func, max_iter=None, etol=None):
@@ -182,7 +182,10 @@ class Network(abc.ABC, torch.nn.Module):
     def edges_step(self, e):
         # TODO: Add Exception if optim not initiazlied <12-04-22,Yang
         # Bangcheng> #
-        e.backward(retain_graph=True)
+        edgelist = list(self.edges.parameters())
+        for a in (self.extra_edges):
+            edgelist += list(a.parameters())
+        e.backward(inputs=edgelist)
         self.edge_optim.step()
 
     def clamp(self, *args: int):
@@ -366,7 +369,6 @@ class OneToOne(OneToX, XToOne):
     def infer(self, input, reset=False,
               mean=True, max_iter=None, etol=None, beta=None):
         max_iter = max_iter if max_iter is not None else self.max_iter
-        self.freeze()
         self.innode = Node(state=input)
         if reset:
             self.resetnodes()
@@ -378,7 +380,6 @@ class OneToOne(OneToX, XToOne):
         Elast = torch.mean(
             self.energy()).item() if mean else torch.sum(
             self.energy()).item()
-        self.free()
         return self.nodes[-1].state.data, Elast, Ediff
 
     def addlayerednodes(self, n, outnode=True, *args, **kwargs):
@@ -430,7 +431,7 @@ class EP(OneToOne):
         self.infer(x, reset=True, max_iter=max_iter, etol=etol, beta=0)
         # EP reaches first equilibrium
         self.edge_optim.zero_grad()
-        torch.mean(-1./self.beta*self.energy(beta=0)).backward()
+        torch.mean(-1./self.beta*self.energy(beta=0)).backward(inputs=list(self.edges.parameters())+sum(list(edge.parameters()) for edge in self.extra_edges))
         _, elast, ediff = self.infer(
             x, max_iter=max_iter, etol=etol, reset=False)
         self.edges_step(torch.mean(1./self.beta*self.energy(beta=0)))
@@ -438,7 +439,7 @@ class EP(OneToOne):
             self.infer(x, reset=False, max_iter=max_iter, etol=etol, beta=0)
             # EP reaches first equilibrium
             self.edge_optim.zero_grad()
-            torch.mean(-1./self.beta*self.energy(beta=0)).backward()
+            torch.mean(-1./self.beta*self.energy(beta=0)).backward(inputs=list(self.edges.parameters())+sum(list(edge.parameters()) for edge in self.extra_edges))
             _, elast, ediff = self.infer(
                 x, max_iter=max_iter, etol=etol, reset=False)
             self.edges_step(torch.mean(1./self.beta*self.energy(beta=0)))
@@ -455,7 +456,10 @@ class EP(OneToOne):
             reset=False,
             beta=self.beta)
         self.edge_optim.zero_grad()
-        torch.mean(0.5/self.beta*self.energy(beta=0)).backward()
+        edgelist = list(self.edges.parameters())
+        for a in (self.extra_edges):
+            edgelist += list(a.parameters())
+        torch.mean(0.5/self.beta*self.energy(beta=0)).backward(inputs=edgelist)
         _, elast, ediff = self.infer(
             x,
             max_iter=max_iter,
@@ -473,7 +477,7 @@ class EP(OneToOne):
                 reset=False,
                 beta=self.beta)
             self.edge_optim.zero_grad()
-            torch.mean(0.5/self.beta*self.energy(beta=0)).backward()
+            torch.mean(0.5/self.beta*self.energy(beta=0)).backward(inputs=list(self.edges.parameters())+sum(list(edge.parameters()) for edge in self.extra_edges))
             _, elast, ediff = self.infer(
                 x,
                 max_iter=max_iter,
