@@ -425,26 +425,29 @@ class EP(OneToOne):
                 E -= interaction
         return E+C
 
-    def two_phase_update(self, x, y, max_iter=None, etol=None,repeat=1):
+    def two_phase_update(self, x, y, max_iter=None, etol=None,repeat=1,beta=0):
         self.outnode = Node(state=y)
         self.outnode.clamp()
         self.infer(x, reset=True, max_iter=max_iter, etol=etol, beta=0)
         # EP reaches first equilibrium
         self.edge_optim.zero_grad()
-        torch.mean(-1./self.beta*self.energy(beta=0)).backward(inputs=list(self.edges.parameters())+sum(list(edge.parameters()) for edge in self.extra_edges))
+        edgelist = list(self.edges.parameters())
+        for a in (self.extra_edges):
+            edgelist += list(a.parameters())
+        torch.mean(-1./self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
         _, elast, ediff = self.infer(
             x, max_iter=max_iter, etol=etol, reset=False)
-        self.edges_step(torch.mean(1./self.beta*self.energy(beta=0)))
+        self.edges_step(torch.mean(1./self.beta*self.energy(beta=-beta)))
         for i in range(repeat-1):
             self.infer(x, reset=False, max_iter=max_iter, etol=etol, beta=0)
             # EP reaches first equilibrium
             self.edge_optim.zero_grad()
-            torch.mean(-1./self.beta*self.energy(beta=0)).backward(inputs=list(self.edges.parameters())+sum(list(edge.parameters()) for edge in self.extra_edges))
+            torch.mean(-1./self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
             _, elast, ediff = self.infer(
                 x, max_iter=max_iter, etol=etol, reset=False)
-            self.edges_step(torch.mean(1./self.beta*self.energy(beta=0)))
+            self.edges_step(torch.mean(1./self.beta*self.energy(beta=-beta)))
 
-    def three_phase_update(self, x, y, max_iter=None, etol=None,repeat=1):
+    def three_phase_update(self, x, y, max_iter=None, etol=None,repeat=1,beta=0):
         self.outnode = Node(state=y)
         self.outnode.clamp()
         self.infer(x, reset=True, max_iter=max_iter, etol=etol, beta=0)
@@ -459,14 +462,14 @@ class EP(OneToOne):
         edgelist = list(self.edges.parameters())
         for a in (self.extra_edges):
             edgelist += list(a.parameters())
-        torch.mean(0.5/self.beta*self.energy(beta=0)).backward(inputs=edgelist)
+        torch.mean(0.5/self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
         _, elast, ediff = self.infer(
             x,
             max_iter=max_iter,
             etol=etol,
             reset=False,
             beta=-self.beta)
-        self.edges_step(torch.mean(-0.5/self.beta*self.energy(beta=0)))
+        self.edges_step(torch.mean(-0.5/self.beta*self.energy(beta=-beta)))
         for i in range(repeat-1):
             self.infer(x, reset=False, max_iter=max_iter, etol=etol, beta=0)
             # EP reaches first equilibrium
@@ -477,14 +480,14 @@ class EP(OneToOne):
                 reset=False,
                 beta=self.beta)
             self.edge_optim.zero_grad()
-            torch.mean(0.5/self.beta*self.energy(beta=0)).backward(inputs=list(self.edges.parameters())+sum(list(edge.parameters()) for edge in self.extra_edges))
+            torch.mean(0.5/self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
             _, elast, ediff = self.infer(
                 x,
                 max_iter=max_iter,
                 etol=etol,
                 reset=False,
                 beta=-self.beta)
-            self.edges_step(torch.mean(-0.5/self.beta*self.energy(beta=0)))
+            self.edges_step(torch.mean(-0.5/self.beta*self.energy(beta=-beta)))
 
 
 class PC(OneToOne):
