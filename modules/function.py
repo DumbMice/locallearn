@@ -23,6 +23,9 @@ class Flatten(torch.nn.Flatten):
     def reverse(self,input):
         return input.view(input.shape[0],*self.original_shape)
 
+class Unflatten(torch.nn.Unflatten):
+    pass
+
 class Linear(torch.nn.Linear):
     def reverse(self,input):
         bias = 0
@@ -59,18 +62,25 @@ class PatchEmbedding(torch.nn.Module):
 
 class MaxPool2d(torch.nn.MaxPool2d):
   def __init__(self, *args,**kwargs) :
-      super().__init__(return_indices=True,*args,**kwargs)
+      super().__init__(*args,**kwargs)
       self.indices=None
       self.output_size =None
 
   def forward(self,input):
-    output,indices=super().forward(input)
-    self.indices = indices
-    self.output_size=input.size()
-    return output
+      if self.return_indices:
+        output,indices=super().forward(input)
+        self.indices = indices
+        self.output_size=input.size()
+        return output
+      else:
+        return super().forward(input)
 
   def reverse(self,input):
     return torch.nn.functional.max_unpool2d(input,self.indices,kernel_size=self.kernel_size,stride=self.stride,padding=self.padding,output_size=self.output_size)
+
+class MaxUnpool2d(torch.nn.MaxUnpool2d):
+    pass
+
 
 class ReLU(torch.nn.ReLU):
   def reverse(self,input):
@@ -95,5 +105,6 @@ class Tanh(torch.nn.Tanh):
     return torch.tanh(input)
 
 class BatchNorm2d(torch.nn.BatchNorm2d):
-    pass
+  def reverse(self, input):
+    return self.forward(input)
 

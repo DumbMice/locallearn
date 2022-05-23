@@ -8,6 +8,7 @@ class Edge(abc.ABC):
         self._nodes = {'pre':None,'pos':None}
         super().__init__(*args,**kwargs)
         self.init_param_buffer()
+        self.scale = 1.
 
     def __setattr__(self, name, value):
         """
@@ -20,6 +21,9 @@ class Edge(abc.ABC):
             self._nodes['pos']=value
         else:
             super().__setattr__(name, value)
+
+    def forward(self,*args,**kwargs):
+        return self.scale*super().forward(*args,**kwargs)
 
     @property
     def pre(self):
@@ -45,6 +49,9 @@ class Edge(abc.ABC):
             return self.forward(self.pre())
         else:
             return self.forward(input)
+
+    def __repr__(self):
+        return super().__repr__()+f" with scale {self.scale}"
 
     def store_grad(self):
         for param in self.parameters():
@@ -105,7 +112,22 @@ class Sequential(Edge,function.Sequential):
         """TODO: to be defined. """
         super().__init__(*args,**kwargs)
 
+    def __setattr__(self, name, value):
+        """
+        Overwrite __setattr__ to bypass default setattr behavior of torch.nn.Module
+        on innode and outnode
+        """
+        if name == 'pre' or name=='pos':
+            for child_edge in self.children():
+                child_edge.__setattr__(name,value)
+        super().__setattr__(name, value)
+
 class Flatten(Edge,function.Flatten):
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)
+
+class Unflatten(Edge,function.Unflatten):
     def __init__(self, *args,**kwargs):
         """TODO: to be defined. """
         super().__init__(*args,**kwargs)
@@ -114,6 +136,24 @@ class MaxPool2d(Edge,function.MaxPool2d):
     def __init__(self, *args,**kwargs):
         """TODO: to be defined. """
         super().__init__(*args,**kwargs)
+
+    def forward(self,input):
+        if self.return_indices:
+            output = super().forward(input)
+            self.pos.buffer['maxpool_indices']=self.indices
+            return output
+        else:
+            return super().forward(input)
+
+class MaxUnpool2d(Edge,function.MaxUnpool2d):
+    def __init__(self, *args,**kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args,**kwargs)
+
+    def forward(self,input):
+        return super().forward(input=input
+                             ,indices=self.pre.buffer['maxpool_indices']
+                             ,output_size=self.pos.shape)
 
 class ReLU(Edge,function.ReLU):
     def __init__(self, *args,**kwargs):

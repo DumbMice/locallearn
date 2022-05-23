@@ -30,6 +30,7 @@ class Node(abc.ABC, torch.nn.Module):
         self.data_init = data_init
         self._batch = None
         self.activation = activation
+        self.buffer = {}
 
     def energy(self):
         return None

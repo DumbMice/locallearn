@@ -53,7 +53,8 @@ class Network(abc.ABC, torch.nn.Module):
     def connect(
             self, prenode: type(Node),
             posnode: type(Node),
-            edge: type(Edge)):
+            edge: type(Edge),
+            scale: float= 1.0):
         """
         Connect two nodes by an edge, and add them inside the network.
         """
@@ -69,6 +70,7 @@ class Network(abc.ABC, torch.nn.Module):
         prenode.connectout.append(edge)
         posnode.connectin.append(edge)
         edge.connect(prenode, posnode)
+        edge.scale = scale
 
         if not edge in self.edges:
             # TODO: Check if identical edges can be identified <13-04-22, Yang
@@ -77,10 +79,11 @@ class Network(abc.ABC, torch.nn.Module):
         return edge
 
     @connect.register
-    def _(self, prenode: int, posnode: int, edge: type(Edge)):
+    def _(self, prenode: int, posnode: int, edge: type(Edge),scale: float=1.0):
         self.nodes[prenode].connectout.append(edge)
         self.nodes[posnode].connectin.append(edge)
         edge.connect(self.nodes[prenode], self.nodes[posnode])
+        edge.scale = scale
 
         if not edge in self.edges:
             # TODO: Check if identical edges can be identified <13-04-22, Yang
@@ -155,7 +158,7 @@ class Network(abc.ABC, torch.nn.Module):
         """
         # TODO: Add Exception if optim not initiazlied <12-04-22,Yang
         # Bangcheng> #
-        e.backward(inputs=list(self.nodes.parameters())[1::])
+        e.backward(retain_graph=True)
         self.node_optim.step()
 
     def node_relax(self, e_func, max_iter=None, etol=None):
@@ -182,10 +185,7 @@ class Network(abc.ABC, torch.nn.Module):
     def edges_step(self, e):
         # TODO: Add Exception if optim not initiazlied <12-04-22,Yang
         # Bangcheng> #
-        edgelist = list(self.edges.parameters())
-        for a in (self.extra_edges):
-            edgelist += list(a.parameters())
-        e.backward(inputs=edgelist)
+        e.backward(retain_graph=True)
         self.edge_optim.step()
 
     def clamp(self, *args: int):
@@ -265,7 +265,7 @@ class Network(abc.ABC, torch.nn.Module):
             if edge not in mem:
                 mem.add(edge)
                 edge.pos.state = edge()
-                self.feedforward(edge.pos)
+                self.feedforward(edge.pos,mem=mem)
         return mem
 
     @abc.abstractmethod
@@ -431,10 +431,7 @@ class EP(OneToOne):
         self.infer(x, reset=True, max_iter=max_iter, etol=etol, beta=0)
         # EP reaches first equilibrium
         self.edge_optim.zero_grad()
-        edgelist = list(self.edges.parameters())
-        for a in (self.extra_edges):
-            edgelist += list(a.parameters())
-        torch.mean(-1./self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
+        torch.mean(-1./self.beta*self.energy(beta=beta)).backward()
         _, elast, ediff = self.infer(
             x, max_iter=max_iter, etol=etol, reset=False)
         self.edges_step(torch.mean(1./self.beta*self.energy(beta=-beta)))
@@ -442,7 +439,7 @@ class EP(OneToOne):
             self.infer(x, reset=False, max_iter=max_iter, etol=etol, beta=0)
             # EP reaches first equilibrium
             self.edge_optim.zero_grad()
-            torch.mean(-1./self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
+            torch.mean(-1./self.beta*self.energy(beta=beta)).backward()
             _, elast, ediff = self.infer(
                 x, max_iter=max_iter, etol=etol, reset=False)
             self.edges_step(torch.mean(1./self.beta*self.energy(beta=-beta)))
@@ -459,10 +456,7 @@ class EP(OneToOne):
             reset=False,
             beta=self.beta)
         self.edge_optim.zero_grad()
-        edgelist = list(self.edges.parameters())
-        for a in (self.extra_edges):
-            edgelist += list(a.parameters())
-        torch.mean(0.5/self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
+        torch.mean(0.5/self.beta*self.energy(beta=beta)).backward()
         _, elast, ediff = self.infer(
             x,
             max_iter=max_iter,
@@ -480,7 +474,7 @@ class EP(OneToOne):
                 reset=False,
                 beta=self.beta)
             self.edge_optim.zero_grad()
-            torch.mean(0.5/self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
+            torch.mean(0.5/self.beta*self.energy(beta=beta)).backward()
             _, elast, ediff = self.infer(
                 x,
                 max_iter=max_iter,
