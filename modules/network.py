@@ -540,3 +540,26 @@ class NEP(NToX, EP):
 
 class PCN(XToN, PC):
     pass
+
+class BiPC(PCN):
+    def __init__(self, beta=None, reverse_scale=1e-6, *args, **kwargs):
+        """TODO: to be defined. """
+        super().__init__(*args, **kwargs)
+        self.beta = beta
+        self.reverse_scale = reverse_scale
+
+    def energy(self,beta=None):
+        C=0.
+        beta=beta if beta is not None else self.beta
+        if beta is not None and beta !=0:
+            # C=beta*(self.cost()+self.cost_b())
+            C = beta*self.cost()
+        #正反向energy
+        E=0.
+        for edge in reversed(self.edges):
+            if edge.energy() is not None:
+                E+=edge.energy()
+            else:
+                E+=torch.sum(((edge.pos()-edge())**2).flatten(start_dim=1),1)
+                E+=self.reverse_scale*torch.sum(((edge.pre()-edge.reverse(edge.pos()))**2).flatten(start_dim=1),1)
+        return E+C
