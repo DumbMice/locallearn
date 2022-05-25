@@ -3,3 +3,6 @@
 *.swp
 __pycache__
 tags
+log/
+savemodel/
+examples/test_*
