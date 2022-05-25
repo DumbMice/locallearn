@@ -19,6 +19,7 @@ class Network(abc.ABC, torch.nn.Module):
         """TODO: to be defined. """
         super().__init__()
         self.nodes = torch.nn.ModuleList()
+        self.freenodes_ = torch.nn.ModuleList()
         self.edges = torch.nn.ModuleList()
         self.costfunc = costfunc
         self.etol = etol
@@ -29,6 +30,14 @@ class Network(abc.ABC, torch.nn.Module):
         self.edge_optim = None
 
     def addnode(self, *args: type(Node)):
+        """
+        Add an edge to self.edges.
+        """
+        for node in args:
+            self.nodes.append(node)
+            self.freenodes_.append(node)
+
+    def addclampednode(self, *args: type(Node)):
         """
         Add an edge to self.edges.
         """
@@ -61,11 +70,17 @@ class Network(abc.ABC, torch.nn.Module):
         if prenode not in self.nodes:
             # TODO: Check if identical edges can be identified <13-04-22, Yang
             # Bangcheng> #
-            self.addnode(prenode)
+            if prenode.clamped:
+                self.addnode(prenode)
+            else:
+                self.addclampednode(prenode)
         if posnode not in self.nodes:
             # TODO: Check if identical edges can be identified <13-04-22, Yang
             # Bangcheng> #
-            self.addnode(posnode)
+            if prenode.clamped:
+                self.addnode(posnode)
+            else:
+                self.addclampednode(posnode)
 
         prenode.connectout.append(edge)
         posnode.connectin.append(edge)
@@ -158,7 +173,7 @@ class Network(abc.ABC, torch.nn.Module):
         """
         # TODO: Add Exception if optim not initiazlied <12-04-22,Yang
         # Bangcheng> #
-        e.backward(retain_graph=True)
+        e.backward(inputs=list(self.freenodes_.parameters()))
         self.node_optim.step()
 
     def node_relax(self, e_func, max_iter=None, etol=None):
@@ -185,7 +200,10 @@ class Network(abc.ABC, torch.nn.Module):
     def edges_step(self, e):
         # TODO: Add Exception if optim not initiazlied <12-04-22,Yang
         # Bangcheng> #
-        e.backward(retain_graph=True)
+        edgelist = list(self.edges.parameters())
+        for a in (self.extra_edges):
+            edgelist += list(a.parameters())
+        e.backward(inputs=edgelist)
         self.edge_optim.step()
 
     def clamp(self, *args: int):
@@ -290,15 +308,18 @@ class NToX(Network):
         for node in self.innode:
             node.clamp()
             node.activation = identity
+            self.addclampednode(node)
 
     def extend_innode(self, nodes):
         if self.innode is None:
             self.set_innode(nodes)
+            return
         else:
             self.external_nodes['innode'].extend(nodes)
         for node in nodes:
             node.clamp()
             node.activation = identity
+            self.addclampednode(node)
 
     def initall(self, input_shapes, device=torch.device('cpu')):
         mem = set()
@@ -312,7 +333,7 @@ class OneToX(Network):
     def set_innode(self, node):
         if self.external_nodes['innode'] is None:
             self.external_nodes['innode'] = node
-            self.addnode(node)
+            self.addclampednode(node)
         else:
             self.external_nodes['innode'].state = node.state.data
         self.external_nodes['innode'].clamp()
@@ -431,7 +452,10 @@ class EP(OneToOne):
         self.infer(x, reset=True, max_iter=max_iter, etol=etol, beta=0)
         # EP reaches first equilibrium
         self.edge_optim.zero_grad()
-        torch.mean(-1./self.beta*self.energy(beta=beta)).backward()
+        edgelist = list(self.edges.parameters())
+        for a in (self.extra_edges):
+            edgelist += list(a.parameters())
+        torch.mean(-1./self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
         _, elast, ediff = self.infer(
             x, max_iter=max_iter, etol=etol, reset=False)
         self.edges_step(torch.mean(1./self.beta*self.energy(beta=-beta)))
@@ -439,7 +463,7 @@ class EP(OneToOne):
             self.infer(x, reset=False, max_iter=max_iter, etol=etol, beta=0)
             # EP reaches first equilibrium
             self.edge_optim.zero_grad()
-            torch.mean(-1./self.beta*self.energy(beta=beta)).backward()
+            torch.mean(-1./self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
             _, elast, ediff = self.infer(
                 x, max_iter=max_iter, etol=etol, reset=False)
             self.edges_step(torch.mean(1./self.beta*self.energy(beta=-beta)))
@@ -456,7 +480,10 @@ class EP(OneToOne):
             reset=False,
             beta=self.beta)
         self.edge_optim.zero_grad()
-        torch.mean(0.5/self.beta*self.energy(beta=beta)).backward()
+        edgelist = list(self.edges.parameters())
+        for a in (self.extra_edges):
+            edgelist += list(a.parameters())
+        torch.mean(0.5/self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
         _, elast, ediff = self.infer(
             x,
             max_iter=max_iter,
@@ -474,7 +501,7 @@ class EP(OneToOne):
                 reset=False,
                 beta=self.beta)
             self.edge_optim.zero_grad()
-            torch.mean(0.5/self.beta*self.energy(beta=beta)).backward()
+            torch.mean(0.5/self.beta*self.energy(beta=beta)).backward(inputs=edgelist)
             _, elast, ediff = self.infer(
                 x,
                 max_iter=max_iter,
