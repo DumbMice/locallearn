@@ -17,10 +17,10 @@ from datetime import datetime
 # from einops import rearrange, reduce, repeat # from einops.layers.torch import Rearrange, Reduce
 
 use_cuda = torch.cuda.is_available()
-device = torch.device("cuda" if use_cuda else "cpu")
+device = torch.device("cuda:1" if use_cuda else "cpu")
 
-batch_size = 512
-test_batch_size = 512
+batch_size = 128
+test_batch_size = 128
 
 class PatchEmbedding(torch.nn.Module):
     def __init__(self, in_channels: int = 3, patch_size: int = 4, emb_size: int = 48):
@@ -63,8 +63,11 @@ mnist_test = datasets.MNIST('data', train=False, download=True,
 
 cifar10_train = datasets.CIFAR10('/data/215/Program/Equilibrium-Propagation-master/cifar10_pytorch', train=True, download=True,
                             transform=transforms.Compose([
+                                transforms.RandomHorizontalFlip(),
+                                transforms.RandomRotation(3),
+                                transforms.RandomCrop(size=[32,32],padding=[4,4]),
                                 transforms.ToTensor(),
-                                transforms.Normalize((0.,), (0.4081,)),
+                                transforms.Normalize((0.0,), (0.4081,)),
                             ]),
                             target_transform=_one_hot_ten
                             )
@@ -93,9 +96,10 @@ network = EP(etol=1e-1, beta=1, max_iter=200)
 network.addlayerednodes(5, True,data_init=torch.nn.init.zeros_,activation=torch.tanh)
 
 network.connect(0,1,Sequential(Conv2d(3, 128, kernel_size=(3, 3),padding=1,stride=1),BatchNorm2d(128)))
-network.connect(1,2,Sequential(Conv2d(128, 256, kernel_size=(5, 5),padding=2,stride=1),BatchNorm2d(256),MaxPool2d(2)))
-network.connect(2,3,Sequential(Conv2d(256, 128, kernel_size=(5, 5),padding=2),BatchNorm2d(128),MaxPool2d(2)))
-network.connect(3,4,Sequential(Conv2d(128, 100, kernel_size=(3, 3),padding=1),BatchNorm2d(100),MaxPool2d(2)))
+network.connect(1,2,Sequential(Conv2d(128, 150, kernel_size=(3, 3),padding=1,stride=1),BatchNorm2d(150),MaxPool2d(2)))
+# network.connect(2,3,Sequential(Conv2d(256, 256, kernel_size=(3, 3),padding=1,stride=1),BatchNorm2d(256),MaxPool2d(2)))
+network.connect(2,3,Sequential(Conv2d(150, 100, kernel_size=(3, 3),padding=1),BatchNorm2d(100),MaxPool2d(2)))
+network.connect(3,4,Sequential(Conv2d(100, 50, kernel_size=(3, 3),padding=1),BatchNorm2d(50),MaxPool2d(2)))
 #patching
 # network.connect(0,1,EdgeBuilder(PatchEmbedding,in_channels= 3, patch_size= 2, emb_size = 96))
 # network.connect(1,2,EdgeBuilder(PatchEmbedding,in_channels= 96, patch_size= 2, emb_size = 200))
@@ -104,7 +108,7 @@ network.connect(3,4,Sequential(Conv2d(128, 100, kernel_size=(3, 3),padding=1),Ba
 # network.connect(4,5,EdgeBuilder(PatchEmbedding,in_channels= 1024, patch_size= 2, emb_size = 512))
 # network.connect(5,6,Sequential(Flatten(),Linear(512,10)))
 # network.connect(4,6,Sequential(MaxPool2d(2),Flatten(),Linear(256,10)))
-external_link = Sequential(Flatten(),Linear(1600,10)).to(device)
+external_link = Sequential(Flatten(),Linear(800,10)).to(device)
 external_link.pre = network.nodes[-1]
 del network.costfunc
 celoss = torch.nn.CrossEntropyLoss(reduction='none')
@@ -126,17 +130,17 @@ network.edge_optim = torch.optim.ASGD(torch.nn.ModuleList([*network.edges,extern
 epoches = 50
 
 accuracy = 0.
-repeat = 3
+repeat = 2
 
 x,y = next(trainiter)
-x=x.cuda()
-y=y.float().cuda()
+x=x.to(device)
+y=y.float().to(device)
 
 network.outnode = Node(state=y)
 out,_,_ = network.infer(x,reset=True,beta=0)
 pre_cost = torch.mean(network.cost())
 print(f'pre cost is {pre_cost}')
-F = open(f'/data/locallearn/examples/lr1e-5/cifar_cifar10_norm_{datetime.now().date()}_{datetime.now().time()}.log','a+')
+F = open(f'/data/locallearn/examples/conv_norm/cifar_cifar10_norm_{datetime.now().date()}_{datetime.now().time()}.log','a+')
 F.write(f'{network} with beta {network.beta}')
 network.epoches = 0
 
@@ -150,8 +154,8 @@ for epoch in range(epoches):
     # for i in range(2):
         #x,y = next(trainiter)
         x, y = next(trainiter)
-        x=x.cuda()
-        y=y.float().cuda()
+        x=x.to(device)
+        y=y.float().to(device)
         network.outnode = Node(state=y)
         if i%20==0:
             out,e_last,e_diff = network.infer(x,reset=True,beta=0)
@@ -167,8 +171,8 @@ for epoch in range(epoches):
     correct = 0
     total = 0
     t_x,t_y = next(testiter)
-    t_x=t_x.cuda()
-    t_y=t_y.float().cuda()
+    t_x=t_x.to(device)
+    t_y=t_y.float().to(device)
     out,e_last,e_diff = network.infer(t_x,reset=True,beta=0)
     output = external_link(network.nodes[-1]())
     # Compute test batch accuracy, energy and store number of seen batches
@@ -181,6 +185,6 @@ for epoch in range(epoches):
     network.node_optim.zero_grad()
     accuracy = correct/total
     F.write(f'\ntime{time.time()-start_time}')
-    pickle.dump(network,open(f'/data/locallearn/examples/lr1e-5/cifar_cifar10_norm_epoch{epoch}_{datetime.now().date()}_{datetime.now().time()}.pth',"wb"))
+    pickle.dump(network,open(f'/data/locallearn/examples/conv_norm/cifar_cifar10_norm_epoch{epoch}_{datetime.now().date()}_{datetime.now().time()}.pth',"wb"))
 F.close()
 

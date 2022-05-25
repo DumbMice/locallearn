@@ -183,6 +183,7 @@ class Network(abc.ABC, torch.nn.Module):
         etol = etol if etol is not None else self.etol
         max_iter = max_iter if max_iter is not None else self.max_iter
         e_last = e_func()
+        self.freeze()
         self.nodes_step(e_last)
         self.node_optim.zero_grad()
         e_diff = 0
@@ -191,10 +192,12 @@ class Network(abc.ABC, torch.nn.Module):
             e_diff = abs(e-e_last)
             if e_diff < etol:
                 self.node_optim.zero_grad()
+                self.free()
                 return e_diff, e_last
             e_last = e
             self.nodes_step(e)
             self.node_optim.zero_grad()
+        self.free()
         return e_diff, e_last
 
     def edges_step(self, e):
@@ -398,6 +401,7 @@ class OneToOne(OneToX, XToOne):
             lambda: torch.sum(
                 self.energy(beta)),
             max_iter=max_iter, etol=etol)[0].item()
+
         Elast = torch.mean(
             self.energy()).item() if mean else torch.sum(
             self.energy()).item()
@@ -549,7 +553,7 @@ class NEP(NToX, EP):
     def infer(self, inputs, reset=False,
               mean=True, max_iter=None, etol=None, beta=None):
         max_iter = max_iter if max_iter is not None else self.max_iter
-        self.freeze()
+        # self.freeze()
         self.innode = [Node(state=input) for input in inputs]
         if reset:
             self.resetnodes()
@@ -561,7 +565,7 @@ class NEP(NToX, EP):
         Elast = torch.mean(
             self.energy()).item() if mean else torch.sum(
             self.energy()).item()
-        self.free()
+        # self.free()
         return self.nodes[-1].state.data, Elast, Ediff
 
 
