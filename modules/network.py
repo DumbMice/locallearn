@@ -443,11 +443,11 @@ class EP(OneToOne):
 
         for i, edge in enumerate(self.edges):
             if edge.energy() is not None:
-                E -= edge.energy()
+                E -= edge.scale*edge.energy()
             else:
                 product = edge(edge.pre.activate())*edge.pos.activate()
                 interaction = torch.sum(product.flatten(start_dim=1), 1)
-                E -= interaction
+                E -= edge.scale*interaction
         return E+C
 
     def two_phase_update(self, x, y, max_iter=None, etol=None,repeat=1,beta=0):
@@ -530,9 +530,9 @@ class PC(OneToOne):
         E = 0.
         for i, edge in enumerate(reversed(self.edges)):
             if edge.energy() is not None:
-                E += edge.energy()
+                E += edge.scale*edge.energy()
             else:
-                E += torch.sum(((edge.pos()-edge()) **
+                E += edge.scale*torch.sum(((edge.pos()-edge()) **
                                2).flatten(start_dim=1), 1)
         return E+C
 

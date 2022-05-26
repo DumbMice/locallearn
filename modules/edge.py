@@ -22,9 +22,6 @@ class Edge(abc.ABC):
         else:
             super().__setattr__(name, value)
 
-    def forward(self,*args,**kwargs):
-        return self.scale*super().forward(*args,**kwargs)
-
     @property
     def pre(self):
         return self._nodes['pre']
