@@ -71,10 +71,10 @@ class BalancedLayer(Optimizer):
 
 def blgd(params,grads,lr,beta,measure_trace,measure_func,ggm_func):
     measures = [measure_func(grad) for grad in grads]
-    global_measure = ggm_func(measures)
+    list(measure_trace[i].mul_(beta).add_(measures[i],alpha=1-beta) for i in range(len(measure)))
+    global_measure = ggm_func(measures_trace)
 
     for i, param in enumerate(params):
-        measure_trace[i].mul_(beta).add_(measures[i],alpha=1-beta)
         lr_i = lr/measure_trace[i]*global_measure
         param.add_(grads[i],alpha=-lr_i)
 
