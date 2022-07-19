@@ -383,6 +383,7 @@ class XToOne(Network):
         else:
             self.external_nodes['outnode'].state = node.state.data
         self.external_nodes['outnode'].clamp()
+        self.external_nodes['outnode'].activation = identity
 
     def cost(self):
         return self.costfunc(
