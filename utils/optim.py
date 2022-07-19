@@ -17,7 +17,7 @@ class BalancedLayer(Optimizer):
         lr(float): learning rate. Default 1e-3
         measure(string): balance strategy, max, mean, std or var. Default max.
         beta(flaot): decay coefficient within time window. Default 0.9.
-        gradient_get_method(string): method to get general gradient, average, inverse average, median. Default average.
+        gradient_get_method(string): method to get general gradient, average, harmonic average, median. Default average.
     """
 
     measures = {'max':torch.max, 'mean':torch.mean, 'std':torch.std, 'var':lambda x: torch.std(x)**2}
