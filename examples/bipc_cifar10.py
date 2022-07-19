@@ -44,15 +44,18 @@ mnist_test = datasets.MNIST('data', train=False, download=True,
 cifar10_train = datasets.CIFAR10('/data/215/Program/Equilibrium-Propagation-master/cifar10_pytorch', train=True, download=True,
                             transform=transforms.Compose([
                                 transforms.ToTensor(),
-                                transforms.Normalize((0.1307,), (0.3081,)),
+                                transforms.Normalize((0.,), (0.5081,)),
                             ]),
                             target_transform=_one_hot_ten
                             )
 
 cifar10_test = datasets.CIFAR10('/data/215/Program/Equilibrium-Propagation-master/cifar10_pytorch', train=False, download=True,
                             transform=transforms.Compose([
+                                transforms.RandomHorizontalFlip(),
+                                transforms.RandomRotation(3),
+                                transforms.RandomCrop(size=[32,32],padding=[4,4]),
                                 transforms.ToTensor(),
-                                transforms.Normalize((0.1307,), (0.3081,)),
+                                transforms.Normalize((0.,), (0.5081,)),
                             ]),
                             target_transform=_one_hot_ten
                             )
@@ -68,15 +71,15 @@ trainiter = iter(trainldr)
 testiter = iter(testldr)
 
 # Initialize EP network
-network = PC(etol=0.1, beta=50., max_iter=1000)
+network = PC(etol=0.1, beta=10., max_iter=1000)
 network.addlayerednodes(6, False,data_init=torch.nn.init.zeros_)
 # network.connect(0, 1, Conv2d(3, 10,3,pos_call=(lambda x: torch.flatten(x,start_dim=1)),padding=1,bias=False))
 # network.connect(1, 2, Linear(10240, 10))
 
 network.connect(0,1,Sequential(Conv2d(3, 128, kernel_size=(3, 3),padding=1,bias=True),MaxPool2d(2,return_indices=True),BatchNorm2d(128),Tanh()))
-network.connect(1,2,Sequential(Conv2d(128, 256, kernel_size=(3, 3),padding=1,bias=True),MaxPool2d(2,return_indices=True),Tanh()))
-network.connect(2,3,Sequential(Conv2d(256, 512, kernel_size=(3, 3),padding=1,bias=True),MaxPool2d(2,return_indices=True),Tanh()))
-network.connect(3,4,Sequential(Conv2d(512, 256, kernel_size=(3, 3),padding=1,bias=True),MaxPool2d(2,return_indices=True),Tanh()))
+network.connect(1,2,Sequential(Conv2d(128, 256, kernel_size=(3, 3),padding=1,bias=True),MaxPool2d(2,return_indices=True),BatchNorm2d(256),Tanh()))
+network.connect(2,3,Sequential(Conv2d(256, 512, kernel_size=(3, 3),padding=1,bias=True),MaxPool2d(2,return_indices=True),BatchNorm2d(512),Tanh()))
+network.connect(3,4,Sequential(Conv2d(512, 256, kernel_size=(3, 3),padding=1,bias=True),MaxPool2d(2,return_indices=True),BatchNorm2d(256),Tanh()))
 network.connect(4,5,Sequential(Flatten(),Linear(1024,10)))
 network.connect(5,4,Sequential(Linear(10,1024),Unflatten(1,[256,2,2])),scale=1e-3)
 network.connect(4,3,Sequential(MaxUnpool2d(2),Conv2d(256, 512, kernel_size=(3, 3),padding=1,bias=True),Tanh()),scale=1e-3)
