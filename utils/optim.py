@@ -29,6 +29,7 @@ class BalancedLayer(Optimizer):
         measure(string): balance strategy, max, mean, std or var. Default max.
         beta(flaot): decay coefficient within time window. Default 0.9.
         gradient_get_method(string): method to get general gradient, average, harmonic average, median. Default average.
+        method(string): method to gradient descent, 'SGD', 'ASGD', 'Adam'. Default 'SGD'.
     """
 
     measures = {'max':torch.max, 'mean':torch.mean, 'std':torch.std, 'var':lambda x: torch.std(x)**2}
@@ -44,6 +45,8 @@ class BalancedLayer(Optimizer):
             raise ValueError(f"Invalid beta parameter: {beta} - should be in [0.0,1.0)")
         if gradient_get_method not in self.ggm.keys():
             raise NameError(f"Invalid gradient_get_method:{gradient_get_method} - should be 'average', 'harmonic average', or 'median'")
+        if method not in self.method.keys():
+            raise NameError(f"Invalid measure:{measure} - should be 'SGD', 'ASGD', or 'Adam''")
 
         defaults = dict(lr=lr,measure=self.measures[measure],beta=beta,gradient_get_method=self.ggm[gradient_get_method],method=method,method_args=method_args)
         super(BalancedLayer,self).__init__(params,defaults)
@@ -65,7 +68,6 @@ class BalancedLayer(Optimizer):
             lr = method_group['lr']
             beta = method_group['beta']
             method = method_group['method']
-            print(method)
             for group in method.param_groups:
                 p = list(group['params'])[0]
                 grad = p.grad
