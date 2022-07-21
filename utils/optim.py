@@ -7,6 +7,9 @@ def ggm_mean(measures):
 def ggm_inverse_average(measures):
     return len(measures)/sum(1./m for m in measures)
 
+def ggm_log_average(measures):
+    return torch.exp(sum(torch.log(m+1e-20) for m in measures)/len(measures))
+
 def ggm_median(measures):
     return measures[(len(measures))//2]
 
@@ -82,5 +85,3 @@ class BalancedLayer(Optimizer):
             for group in method.param_groups:
                 group['lr'] = lr/group['measure_trace']*global_measure
             method.step()
-
-
