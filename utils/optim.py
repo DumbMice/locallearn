@@ -74,6 +74,8 @@ class BalancedLayer(Optimizer):
             for group in method.param_groups:
                 p = list(group['params'])[0]
                 grad = p.grad
+                if grad is None:
+                    continue
                 if 'started' not in group:
                     # Exponential moving average of gradient values
                     group['measure_trace'] = measure_func(grad)
