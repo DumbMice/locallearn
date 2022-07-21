@@ -85,5 +85,9 @@ class BalancedLayer(Optimizer):
                 measure_trace.append(group['measure_trace'])
             global_measure = ggm_func(measure_trace)
             for group in method.param_groups:
+                p = list(group['params'])[0]
+                grad = p.grad
+                if grad is None:
+                    continue
                 group['lr'] = lr/group['measure_trace']*global_measure
             method.step()
