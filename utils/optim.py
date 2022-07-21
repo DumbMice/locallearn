@@ -31,12 +31,12 @@ class BalancedLayer(Optimizer):
         lr(float): learning rate. Default 1e-3
         measure(string): balance strategy, max, mean, std or var. Default max.
         beta(flaot): decay coefficient within time window. Default 0.9.
-        gradient_get_method(string): method to get general gradient, average, harmonic average, median. Default average.
+        gradient_get_method(string): method to get general gradient, average, harmonic average, median,log average. Default average.
         method(string): method to gradient descent, 'SGD', 'ASGD', 'Adam'. Default 'SGD'.
     """
 
     measures = {'max':torch.max, 'mean':torch.mean, 'std':torch.std, 'var':lambda x: torch.std(x)**2}
-    ggm = {'average':ggm_mean, 'harmonic average':ggm_inverse_average, 'median':ggm_median}
+    ggm = {'average':ggm_mean, 'harmonic average':ggm_inverse_average, 'log average':ggm_log_average, 'median':ggm_median}
     method = {'SGD':torch.optim.SGD,'ASGD':torch.optim.ASGD, 'Adam':torch.optim.Adam}
 
     def __init__(self, params, lr=1e-3, measure='max',beta=0.9,gradient_get_method="average",method="SGD",method_args={}):
@@ -47,7 +47,7 @@ class BalancedLayer(Optimizer):
         if not 0.0<=beta<1.0:
             raise ValueError(f"Invalid beta parameter: {beta} - should be in [0.0,1.0)")
         if gradient_get_method not in self.ggm.keys():
-            raise NameError(f"Invalid gradient_get_method:{gradient_get_method} - should be 'average', 'harmonic average', or 'median'")
+            raise NameError(f"Invalid gradient_get_method:{gradient_get_method} - should be 'average', 'harmonic average', 'log average' or 'median'")
         if method not in self.method.keys():
             raise NameError(f"Invalid measure:{measure} - should be 'SGD', 'ASGD', or 'Adam''")
 
